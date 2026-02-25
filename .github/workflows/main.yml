@@ -1,13 +1,12 @@
 name: Publish ResultCrafter To NuGet
 
 env:
-  NUGET_SOURCE: 'https://api.nuget.org/v3/index.json'
-  OUTPUT_DIR: 'nupkgs'
+  NUGET_SOURCE: https://api.nuget.org/v3/index.json
+  OUTPUT_DIR: nupkgs
 
 on:
   push:
-    branches:
-      - main
+    branches: [ main ]
 
 permissions:
   contents: read
@@ -15,6 +14,7 @@ permissions:
 jobs:
   publish:
     runs-on: ubuntu-latest
+    environment: Environment Settings
 
     steps:
       - name: Checkout
@@ -35,50 +35,45 @@ jobs:
         run: dotnet test --no-build --configuration Release --verbosity normal
 
       - name: Pack ResultCrafter.Core
-        run: >
-          dotnet pack src/ResultCrafter.Core/ResultCrafter.Core.csproj
-          --no-build
-          --configuration Release
-          --output ${{ env.OUTPUT_DIR }}
+        run: dotnet pack src/ResultCrafter.Core/ResultCrafter.Core.csproj --no-build --configuration Release --output ${{ env.OUTPUT_DIR }}
 
       - name: Pack ResultCrafter.AspNetCore
-        run: >
-          dotnet pack src/ResultCrafter.AspNetCore/ResultCrafter.AspNetCore.csproj
-          --no-build
-          --configuration Release
-          --output ${{ env.OUTPUT_DIR }}
+        run: dotnet pack src/ResultCrafter.AspNetCore/ResultCrafter.AspNetCore.csproj --no-build --configuration Release --output ${{ env.OUTPUT_DIR }}
 
       - name: Pack ResultCrafter.AspNetCore.EfCore
-        run: >
-          dotnet pack src/ResultCrafter.AspNetCore.EfCore/ResultCrafter.AspNetCore.EfCore.csproj
-          --no-build
-          --configuration Release
-          --output ${{ env.OUTPUT_DIR }}
+        run: dotnet pack src/ResultCrafter.AspNetCore.EfCore/ResultCrafter.AspNetCore.EfCore.csproj --no-build --configuration Release --output ${{ env.OUTPUT_DIR }}
 
       - name: Pack ResultCrafter.FluentValidation
-        run: >
-          dotnet pack src/ResultCrafter.FluentValidation/ResultCrafter.FluentValidation.csproj
-          --no-build
-          --configuration Release
-          --output ${{ env.OUTPUT_DIR }}
+        run: dotnet pack src/ResultCrafter.FluentValidation/ResultCrafter.FluentValidation.csproj --no-build --configuration Release --output ${{ env.OUTPUT_DIR }}
 
       - name: Pack ResultCrafter.MediatR
-        run: >
-          dotnet pack src/ResultCrafter.MediatR/ResultCrafter.MediatR.csproj
-          --no-build
-          --configuration Release
-          --output ${{ env.OUTPUT_DIR }}
+        run: dotnet pack src/ResultCrafter.MediatR/ResultCrafter.MediatR.csproj --no-build --configuration Release --output ${{ env.OUTPUT_DIR }}
 
-      - name: Publish NuGet packages
-        run: >
-          dotnet nuget push "${{ env.OUTPUT_DIR }}/*.nupkg"
-          --api-key ${{ secrets.NUGET_API_KEY }}
-          --source ${{ env.NUGET_SOURCE }}
-          --skip-duplicate
+      - name: Publish packages
+        env:
+          NUGET_API_KEY: ${{ secrets.NUGET_API_KEY }}
+        shell: bash
+        run: |
+          set -euo pipefail
 
-      - name: Publish symbol packages
-        run: >
-          dotnet nuget push "${{ env.OUTPUT_DIR }}/*.snupkg"
-          --api-key ${{ secrets.NUGET_API_KEY }}
-          --source ${{ env.NUGET_SOURCE }}
-          --skip-duplicate
+          if [ -z "${NUGET_API_KEY:-}" ]; then
+            echo "NUGET_API_KEY is missing. If you stored it as an Environment secret, set jobs.publish.environment to that Environment name."
+            exit 1
+          fi
+
+          shopt -s nullglob
+
+          nupkgs=( "${{ env.OUTPUT_DIR }}"/*.nupkg )
+          snupkgs=( "${{ env.OUTPUT_DIR }}"/*.snupkg )
+
+          if [ ${#nupkgs[@]} -eq 0 ]; then
+            echo "No .nupkg files found in ${{ env.OUTPUT_DIR }}"
+            ls -la "${{ env.OUTPUT_DIR }}" || true
+            exit 1
+          fi
+
+          dotnet nuget push "${nupkgs[@]}" --api-key "$NUGET_API_KEY" --source "${{ env.NUGET_SOURCE }}" --skip-duplicate
+
+          if [ ${#snupkgs[@]} -gt 0 ]; then
+            dotnet nuget push "${snupkgs[@]}" --api-key "$NUGET_API_KEY" --source "${{ env.NUGET_SOURCE }}" --skip-duplicate
+          fi
