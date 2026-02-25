@@ -2,7 +2,7 @@ using FluentValidation;
 using ResultCrafter.AspNetCore.DependencyInjection;
 using ResultCrafter.AspNetCore.EfCore;
 using ResultCrafter.Demo;
-using ResultCrafter.Demo.Validators;
+using ResultCrafter.MediatR;
 using Scalar.AspNetCore;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -19,7 +19,13 @@ builder.Services.AddOpenApi();
 builder.Services.AddControllers();
 
 builder.Services.AddSingleton<ItemService>();
-builder.Services.AddValidatorsFromAssemblyContaining<CreateItemRequestValidator>(ServiceLifetime.Singleton);
+builder.Services.AddValidatorsFromAssemblyContaining<Program>(ServiceLifetime.Singleton); // Only for demo not needed.
+
+builder.Services.AddMediatR(cfg =>
+{
+   cfg.RegisterServicesFromAssemblyContaining<Program>();
+   cfg.AddResultCrafterValidation();
+});
 
 var app = builder.Build();
 

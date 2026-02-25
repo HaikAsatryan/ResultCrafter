@@ -9,12 +9,12 @@ logging, and first-class Minimal API support.
 
 ## Why I Built This
 
-I already maintain several libraries under the [Pandatech](https://www.nuget.org/profiles/Pandatech) umbrella — most of
+I already maintain several libraries under the [Pandatech](https://www.nuget.org/profiles/Pandatech) umbrella - most of
 them solving specific infrastructure problems, built for production use at speed, and published publicly as a
 convenience. They are primarily used internally, and they do not follow strict semver or breaking change policies; if
 you adopt them, expect that they may change in ways that suit internal needs first.
 
-ResultCrafter is different. It is a personal project — no company behind it, no deadlines, no commercial interest. I
+ResultCrafter is different. It is a personal project - no company behind it, no deadlines, no commercial interest. I
 spent a long time on every inch of it: the API design, the dependency choices, the documentation, the tests, the
 pipeline integration. It is the most carefully crafted library I have written, and I intend to keep it that way.
 
@@ -39,11 +39,12 @@ maintained for as long as I write .NET code.
 6. [Demo: Every Scenario](#demo-every-scenario)
 7. [MVC Controller Support](#mvc-controller-support)
 8. [FluentValidation Integration](#fluentvalidation-integration)
-9. [EF Core Integration](#ef-core-integration)
-10. [Configuration](#configuration)
-11. [Performance](#performance)
-12. [Limitations](#limitations)
-13. [Roadmap](#roadmap)
+9. [MediatR + FluentValidation Pipeline](#mediatr--fluentvalidation-pipeline)
+10. [EF Core Integration](#ef-core-integration)
+11. [Configuration](#configuration)
+12. [Performance](#performance)
+13. [Limitations](#limitations)
+14. [Roadmap](#roadmap)
 
 ---
 
@@ -55,7 +56,7 @@ throwing exceptions. And to be upfront about the trade-off, because there genuin
 ### The honest trade-off
 
 `Task<User>` is cleaner to read than `Task<Result<User>>`. That is simply true. The exception-based approach wins on
-aesthetics — your method signatures stay lean, your service interfaces look uncluttered, and you can throw from anywhere
+aesthetics - your method signatures stay lean, your service interfaces look uncluttered, and you can throw from anywhere
 in a deeply nested call stack without changing a single method signature above it.
 
 That cleanliness has a real cost though, and the cost compounds as your codebase grows.
@@ -87,8 +88,8 @@ calls naturally without any try/catch at all.
 
 ### When exceptions still make sense
 
-ResultCrafter does not pretend exceptions are always wrong. Truly unexpected failures — things you could not plan for
-and cannot recover from — still belong in exceptions. ResultCrafter's `IExceptionHandler` integration is specifically
+ResultCrafter does not pretend exceptions are always wrong. Truly unexpected failures - things you could not plan for
+and cannot recover from - still belong in exceptions. ResultCrafter's `IExceptionHandler` integration is specifically
 designed to catch these, log them properly, and convert them to a clean 500 ProblemDetails response. The two patterns
 are complementary, not mutually exclusive.
 
@@ -175,21 +176,19 @@ middleware pipeline catches, maps, and logs them as ProblemDetails. It works, bu
 exception-as-control-flow approach: performance cost, invisible failure contracts, and harder-to-test code.
 ResultCrafter
 was built to address exactly those issues. The two can coexist if you want exception handling for truly unexpected
-errors
-alongside Result types for expected ones.
+errors alongside Result types for expected ones.
 
 ---
 
 ## Packages
 
-ResultCrafter ships as four focused packages so you only take what you need.
-
-| Package                           | Purpose                                                                                                                                              |
-|-----------------------------------|------------------------------------------------------------------------------------------------------------------------------------------------------|
-| `ResultCrafter.Core`              | The `Result<T>`, `Result`, `Error`, and `ErrorType` primitives. No framework dependencies.                                                           |
-| `ResultCrafter.AspNetCore`        | RFC 9457 ProblemDetails pipeline, `IExceptionHandler`, structured logging, Minimal API extensions, and MVC controller extensions. Requires .NET 10+. |
-| `ResultCrafter.AspNetCore.EfCore` | Intercepts `DbUpdateConcurrencyException` and maps it to a 409 ProblemDetails response automatically.                                                |
-| `ResultCrafter.FluentValidation`  | Bridges `IValidator<T>` to `Error.BadRequest` with field-level error dictionaries.                                                                   |
+| Package                           | Purpose                                                                                                                                                        |
+|-----------------------------------|----------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| `ResultCrafter.Core`              | The `Result<T>`, `Result`, `Error`, and `ErrorType` primitives. No framework dependencies.                                                                     |
+| `ResultCrafter.AspNetCore`        | RFC 9457 ProblemDetails pipeline, `IExceptionHandler`, structured logging, Minimal API extensions, and MVC controller extensions. Requires .NET 10+.           |
+| `ResultCrafter.AspNetCore.EfCore` | Intercepts `DbUpdateConcurrencyException` and maps it to a 409 ProblemDetails response automatically.                                                          |
+| `ResultCrafter.FluentValidation`  | Bridges `IValidator<T>` to `Error.BadRequest` with field-level error dictionaries.                                                                             |
+| `ResultCrafter.MediatR`           | MediatR pipeline behaviors that run FluentValidation automatically for handlers returning `Result` / `Result<T>`, short-circuiting with structured 400 errors. |
 
 ---
 
@@ -202,6 +201,7 @@ dotnet add package ResultCrafter.Core
 dotnet add package ResultCrafter.AspNetCore
 dotnet add package ResultCrafter.AspNetCore.EfCore   # optional, EF Core users
 dotnet add package ResultCrafter.FluentValidation    # optional, FluentValidation users
+dotnet add package ResultCrafter.MediatR             # optional, MediatR validation pipeline behaviors
 ```
 
 ---
@@ -258,12 +258,12 @@ return Error.BadRequest(new Dictionary<string, string[]>
 
 ```csharp
 return Result<OrderDto>.Ok(dto);                                    // 200
-return dto;                                                          // 200 — implicit conversion
+return dto;                                                         // 200 - implicit conversion
 return Result<OrderDto>.Created($"/api/orders/{id}", dto);          // 201
 return Result<OrderDto>.Accepted(dto, $"/api/orders/{id}/status");  // 202
-return Result.NoContent();                                           // 204
-return Result.Accepted();                                            // 202 void
-return Error.NotFound($"Order {id} does not exist.");               // failure — implicit conversion
+return Result.NoContent();                                          // 204
+return Result.Accepted();                                           // 202 void
+return Error.NotFound($"Order {id} does not exist.");               // failure - implicit conversion
 ```
 
 ### Mapping to HTTP responses in Minimal API handlers
@@ -305,9 +305,9 @@ app.MapPost("/orders/bulk-cancel", async (BulkCancelRequest req, OrderService sv
 
 > **A note on OpenAPI**: because ResultCrafter uses `TypedResults` on the success path, ASP.NET Core's OpenAPI source
 > generator picks up success responses (200, 201, 202, 204) automatically with no extra annotation. Error responses are
-> a different story — `ProblemHttpResult` is deliberately excluded from automatic inference, so each possible problem
+> a different story. `ProblemHttpResult` is deliberately excluded from automatic inference, so each possible problem
 > status code needs to be declared explicitly. That is what the `ProducesNotFound()`, `ProducesBadRequest()`,
-> `ProducesConflict()` etc. extension calls are doing. They have no effect at runtime; they exist purely to populate
+> `ProducesConflict()` etc. extension calls are doing. They have no effect at runtime. They exist purely to populate
 > the OpenAPI schema correctly.
 
 ### What the error response looks like
@@ -352,12 +352,12 @@ A validation 400 from `Error.BadRequest(fieldErrors)` produces:
 ### Unhandled exception (500) and EF Core concurrency (409) demo endpoints
 
 ```csharp
-// Throws an unhandled exception — ResultCrafterExceptionHandler logs it at Error
+// Throws an unhandled exception. ResultCrafterExceptionHandler logs it at Error
 // and converts it to a sanitised 500 ProblemDetails (full detail in dev/staging).
 app.MapGet("/items/crash", () =>
-    throw new InvalidOperationException("Simulated unhandled exception — watch the logs."));
+    throw new InvalidOperationException("Simulated unhandled exception - watch the logs."));
 
-// Throws DbUpdateConcurrencyException — EfCoreHandler intercepts it as 409
+// Throws DbUpdateConcurrencyException. EfCoreHandler intercepts it as 409
 // before the generic 500 handler ever sees it.
 app.MapGet("/items/db-crash", () =>
     throw new DbUpdateConcurrencyException("Simulated EF Core conflict.", []));
@@ -382,7 +382,7 @@ The 500 response (sanitised in production):
 ## MVC Controller Support
 
 > **ResultCrafter is Minimal API-first.** The controller integration is a fully working,
-> well-tested feature — not an afterthought. But Minimal APIs remain the recommended path for
+> well-tested feature, not an afterthought. But Minimal APIs remain the recommended path for
 > new code. The controller support is here for teams with existing controller codebases who want
 > ResultCrafter's error handling without a full migration.
 
@@ -392,7 +392,7 @@ Controller endpoints using ResultCrafter produce exactly the same outcomes as Mi
 ProblemDetails shape, the same `instance` / `traceId` / `requestId` enrichment, the same structured 4xx logging, and
 the same `IExceptionHandler` behaviour for 5xx errors. None of this needs to be wired separately.
 
-This parity is not accidental. On the failure path, `ControllerResultExtensions` returns a `ProblemActionResult` — a
+This parity is not accidental. On the failure path, `ControllerResultExtensions` returns a `ProblemActionResult`, a
 thin `ActionResult` subclass that routes through `IProblemDetailsService.TryWriteAsync` on execution, so the same
 `ConfigureResultCrafterProblemDetails` post-configure callback fires for both paths.
 
@@ -403,16 +403,16 @@ The method names mirror the Minimal API versions exactly. Only the return types 
 ```csharp
 using ResultCrafter.AspNetCore.Controllers;
 
-// Result<T> — returns ActionResult<T>
+// Result<T> - returns ActionResult<T>
 result.ToOkResult()        // 200 Ok or ProblemDetails
 result.ToCreatedResult()   // 201 Created or ProblemDetails
 result.ToAcceptedResult()  // 202 Accepted or ProblemDetails
 
-// void Result — returns IActionResult
+// void Result - returns IActionResult
 result.ToNoContentResult() // 204 NoContent or ProblemDetails
 result.ToAcceptedResult()  // 202 Accepted or ProblemDetails
 
-// bare Error — returns IActionResult
+// bare Error - returns IActionResult
 error.ToProblemResult()    // ProblemDetails directly
 ```
 
@@ -471,7 +471,7 @@ public sealed class OrdersController(OrderService svc) : ControllerBase
 }
 ```
 
-No additional DI registration is required — `AddResultCrafter()` covers everything. Just add
+No additional DI registration is required. `AddResultCrafter()` covers everything. Just add
 `builder.Services.AddControllers()` and `app.MapControllers()` as you normally would for MVC.
 
 ---
@@ -509,8 +509,90 @@ public async Task<Result<OrderDto>> CreateAsync(CreateOrderRequest req, Cancella
 ```
 
 `ValidateToResultAsync` returns `null` on success and an `Error.BadRequest` with the full field errors dictionary on
-failure. Property names are used as-is from FluentValidation. If you want a specific casing convention (e.g. camelCase),
-configure `ValidatorOptions.Global.PropertyNameResolver` globally in your composition root.
+failure. Property names are used as-is from FluentValidation. If you want a specific casing convention (for example,
+camelCase), configure `ValidatorOptions.Global.PropertyNameResolver` globally in your composition root.
+
+---
+
+## MediatR + FluentValidation Pipeline
+
+The `ResultCrafter.MediatR` package adds pre-built MediatR pipeline behaviors that automatically run all registered
+FluentValidation validators before your handler executes.
+
+It supports both handler shapes:
+
+- `IRequest<Result<T>>`
+- `IRequest<Result>`
+
+If validation fails, the pipeline short-circuits and returns `Error.BadRequest(fieldErrors)` (wrapped in `Result<T>` or
+`Result`), so your handlers only run on valid requests.
+
+### Registration
+
+```csharp
+using FluentValidation.DependencyInjectionExtensions;
+using ResultCrafter.MediatR;
+
+builder.Services.AddMediatR(cfg =>
+{
+    cfg.RegisterServicesFromAssemblyContaining<Program>();
+    cfg.AddResultCrafterValidation();
+});
+```
+
+### Example request + handler (`Result<T>`)
+
+```csharp
+public sealed record CreateOrderCommand(string CustomerEmail, int Quantity) : IRequest<Result<OrderDto>>;
+
+public sealed class CreateOrderCommandValidator : AbstractValidator<CreateOrderCommand>
+{
+    public CreateOrderCommandValidator()
+    {
+        RuleFor(x => x.CustomerEmail)
+            .NotEmpty().WithMessage("Email is required.")
+            .EmailAddress().WithMessage("Email must be a valid address.");
+
+        RuleFor(x => x.Quantity)
+            .GreaterThan(0).WithMessage("Quantity must be greater than 0.");
+    }
+}
+
+public sealed class CreateOrderHandler : IRequestHandler<CreateOrderCommand, Result<OrderDto>>
+{
+    public Task<Result<OrderDto>> Handle(CreateOrderCommand request, CancellationToken ct)
+    {
+        var dto = new OrderDto(123, request.CustomerEmail, request.Quantity);
+        return Task.FromResult(Result<OrderDto>.Created($"/api/orders/{dto.Id}", dto));
+    }
+}
+```
+
+### Example request + handler (`Result`)
+
+```csharp
+public sealed record CancelOrderCommand(int OrderId) : IRequest<Result>;
+
+public sealed class CancelOrderCommandValidator : AbstractValidator<CancelOrderCommand>
+{
+    public CancelOrderCommandValidator()
+    {
+        RuleFor(x => x.OrderId).GreaterThan(0);
+    }
+}
+
+public sealed class CancelOrderHandler : IRequestHandler<CancelOrderCommand, Result>
+{
+    public Task<Result> Handle(CancelOrderCommand request, CancellationToken ct) =>
+        Task.FromResult(Result.NoContent());
+}
+```
+
+### Behavior notes
+
+- Validators run sequentially (intentionally safe for validators that depend on non-thread-safe services like EF Core `DbContext`).
+- All validator failures are aggregated into one response.
+- Handlers with no registered validators are a pass-through with effectively zero overhead beyond pipeline dispatch.
 
 ---
 
@@ -617,9 +699,9 @@ There is no dynamic dispatch, no `Expression` compilation, and no reflection any
 ## Testing
 
 ResultCrafter ships with a comprehensive test suite covering the core primitives, the ASP.NET Core pipeline integration,
-the controller extensions, and the FluentValidation bridge. The test project is structured into focused directories —
-`Core`, `AspNetCore`, `AspNetCore/Controllers`, and `FluentValidation` — each targeting the specific contracts of that
-layer.
+the controller extensions, the FluentValidation bridge, and the MediatR behaviors. The test project is structured into
+focused directories like `Core`, `AspNetCore`, `AspNetCore/Controllers`, `FluentValidation`, and `MediatR`, each
+targeting the specific contracts of that layer.
 
 Tests were written with the goal of catching real regressions, not just hitting coverage numbers. Every public contract
 has tests. Every known edge case has a test. Every DI registration guard has a test. If you are contributing, the
@@ -646,15 +728,7 @@ support for .NET 8 or 9 today, the alternatives listed above are good options.
 ## Roadmap
 
 ResultCrafter has no fixed release schedule. Changes happen when they make the library better, not on a calendar.
-
-One thing currently on the radar:
-
-**MediatR + FluentValidation pipeline behavior.** A pre-built `IPipelineBehavior` that runs FluentValidation
-automatically before every command handler and returns a structured `Error.BadRequest` result if validation fails,
-without any per-handler wiring. This would make the full stack — request comes in, gets validated, handler runs,
-Result comes out — completely automatic.
-
-If this would be useful to you, open an issue. Community feedback is what drives prioritization.
+If there is something you want next, open an issue. Community feedback is what drives prioritization.
 
 ---
 

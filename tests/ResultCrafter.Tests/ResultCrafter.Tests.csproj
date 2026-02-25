@@ -20,6 +20,7 @@
     <ItemGroup>
       <ProjectReference Include="..\..\src\ResultCrafter.AspNetCore.EfCore\ResultCrafter.AspNetCore.EfCore.csproj" />
       <ProjectReference Include="..\..\src\ResultCrafter.FluentValidation\ResultCrafter.FluentValidation.csproj" />
+      <ProjectReference Include="..\..\src\ResultCrafter.MediatR\ResultCrafter.MediatR.csproj" />
     </ItemGroup>
 
 </Project>

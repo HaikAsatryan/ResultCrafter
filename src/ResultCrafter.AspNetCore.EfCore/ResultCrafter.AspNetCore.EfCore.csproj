@@ -1,17 +1,17 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
 
     <PropertyGroup>
-        <Description>EF Core integration for ResultCrafter ASP.NET Core. Maps DbUpdateConcurrencyException to 409 ProblemDetails via IExceptionHandler.</Description>
-        <PackageTags>ef-core;aspnetcore;result-pattern;problemdetails;concurrency;optimistic-concurrency;dbupdateconcurrencyexception;iexceptionhandler</PackageTags>
+        <Description>EF Core integration for ResultCrafter ASP.NET Core. Maps DbUpdateConcurrencyException to 409 RFC 9457 ProblemDetails via IExceptionHandler.</Description>
+        <PackageTags>ef-core;aspnetcore;result-pattern;problem-details;problemdetails;concurrency;optimistic-concurrency;dbupdateconcurrencyexception;iexceptionhandler</PackageTags>
     </PropertyGroup>
 
     <ItemGroup>
-        <FrameworkReference Include="Microsoft.AspNetCore.App" />
-        <PackageReference Include="Microsoft.EntityFrameworkCore" Version="10.0.3" />
+        <FrameworkReference Include="Microsoft.AspNetCore.App"/>
+        <PackageReference Include="Microsoft.EntityFrameworkCore" Version="10.0.3"/>
     </ItemGroup>
 
     <ItemGroup>
-        <ProjectReference Include="..\ResultCrafter.AspNetCore\ResultCrafter.AspNetCore.csproj" />
+        <ProjectReference Include="..\ResultCrafter.AspNetCore\ResultCrafter.AspNetCore.csproj"/>
     </ItemGroup>
 
 </Project>

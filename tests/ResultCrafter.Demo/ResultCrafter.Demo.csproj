@@ -10,6 +10,11 @@
         <ProjectReference Include="..\..\src\ResultCrafter.AspNetCore.EfCore\ResultCrafter.AspNetCore.EfCore.csproj" />
         <ProjectReference Include="..\..\src\ResultCrafter.AspNetCore\ResultCrafter.AspNetCore.csproj" />
         <ProjectReference Include="..\..\src\ResultCrafter.FluentValidation\ResultCrafter.FluentValidation.csproj" />
+        <ProjectReference Include="..\..\src\ResultCrafter.MediatR\ResultCrafter.MediatR.csproj" />
+    </ItemGroup>
+
+    <ItemGroup>
+      <Folder Include="Services\" />
     </ItemGroup>
 
 </Project>

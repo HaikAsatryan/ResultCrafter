@@ -3,7 +3,7 @@
 > A minimal, opinionated Result pattern library for modern .NET (10+). Provides `Result<T>`, `Result`, and `Error`
 > as `readonly struct` types, with built-in RFC 9457 ProblemDetails pipeline, structured logging via
 > `[LoggerMessage]`, first-class Minimal API support, and full MVC controller support.
-> Ships as four focused NuGet packages under the `ResultCrafter.*` prefix.
+> Ships as five focused NuGet packages under the `ResultCrafter.*` prefix.
 
 ## Key design decisions
 
@@ -25,6 +25,11 @@
   `DbUpdateConcurrencyException` resolves as 409 rather than falling through to 500.
 - `ResultCrafterMarker` + `ResultCrafterStartupValidator` enforce that both `AddResultCrafter()` and
   `UseResultCrafter()` are called; misconfiguration throws at startup, not at the first request.
+- `ResultCrafter.MediatR` provides two open-generic MediatR behaviors (`Result<T>` and void `Result`) because
+  `IPipelineBehavior` requires an exact response-type match; a single behavior cannot cover both without reflection.
+- MediatR validation behaviors execute validators sequentially (not `Task.WhenAll`) for safety with validators that
+  depend on non-thread-safe scoped services (e.g. EF Core `DbContext`); failures are aggregated into one field-errors
+  dictionary.  
 
 ## Packages
 
@@ -34,6 +39,8 @@
 - `ResultCrafter.AspNetCore.EfCore` — intercepts `DbUpdateConcurrencyException` → 409. Call
   `AddResultCrafterEfCore()` after `AddResultCrafter()`.
 - `ResultCrafter.FluentValidation` — `ValidateToResultAsync` bridge from `IValidator<T>` to `Error.BadRequest`.
+- `ResultCrafter.MediatR` — MediatR pipeline behaviors that run FluentValidation automatically for handlers returning
+  `Result` / `Result<T>`, short-circuiting with `Error.BadRequest(fieldErrors)`.
 
 ## Source layout
 
@@ -132,6 +139,16 @@
   `ValidateToResultAsync<T>` — returns `null` on success, `Error?` (a `BadRequest` with field-errors dict) on
   failure. Property names come from FluentValidation as-is; configure
   `ValidatorOptions.Global.PropertyNameResolver` for casing conventions.
+  
+### MediatR integration (`src/ResultCrafter.MediatR/`)
+
+- [ResultValidationBehavior.cs](src/ResultCrafter.MediatR/ResultValidationBehavior.cs):
+  `IPipelineBehavior<TRequest, Result<T>>` — runs all registered `IValidator<TRequest>` instances before the handler,
+  aggregates failures, returns `Result<T>.Fail(Error.BadRequest(fieldErrors))` on validation failure.
+- [VoidResultValidationBehavior.cs](src/ResultCrafter.MediatR/VoidResultValidationBehavior.cs):
+  `IPipelineBehavior<TRequest, Result>` — same validation behavior for handlers returning void `Result`.
+- [ServiceCollectionExtensions.cs](src/ResultCrafter.MediatR/ServiceCollectionExtensions.cs):
+  `AddResultCrafterValidation(this MediatRServiceConfiguration)` — registers both open behaviors with MediatR.
 
 ### Demo project (`src/ResultCrafter.Demo/`)
 
@@ -159,7 +176,9 @@ All tests use xUnit v3. Test files mirror the source namespace they cover.
   tests using `CapturingProblemDetailsService` spy), `ControllerResultAttributesTests` (~17 tests verifying
   status codes, types, `AllowMultiple`, and `AttributeTargets.Method`).
 - `FluentValidation/` — `ValidatorExtensionsTests`: null on success, field-errors dict on failure.
-
+- `MediatR/` — `ResultValidationBehaviorTests`, `VoidResultValidationBehaviorTests`, `ServiceCollectionExtensionsTests`:
+  validator pass-through, aggregation, cancellation token flow, and open-behavior registration.
+  
 ## Extension points and conventions
 
 - To add a new `ErrorType`: add the enum value in `ErrorType.cs`, add a factory on `Error`, add `Status`/`Title`

@@ -9,6 +9,7 @@ using ResultCrafter.AspNetCore.ProblemDetails;
 
 namespace ResultCrafter.AspNetCore.ExceptionHandling;
 
+/// <inheritdoc />
 public sealed class ResultCrafterExceptionHandler(
    ILogger<ResultCrafterExceptionHandler> logger,
    IOptions<ResultCrafterOptions> options,
@@ -18,6 +19,7 @@ public sealed class ResultCrafterExceptionHandler(
    // Evaluated once at startup; avoids per-request environment name inspection.
    private readonly bool _includeDetailsByDefault = ComputeIsNonProd(env);
 
+   /// <inheritdoc />
    public async ValueTask<bool> TryHandleAsync(HttpContext httpContext,
       Exception exception,
       CancellationToken cancellationToken)

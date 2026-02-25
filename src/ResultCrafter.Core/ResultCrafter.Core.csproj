@@ -1,8 +1,8 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
 
     <PropertyGroup>
-        <Description>Lightweight Result and Error primitives for modern .NET applications. No ASP.NET Core dependency.</Description>
-        <PackageTags>result;result-pattern;error;dotnet;csharp;domain;application</PackageTags>
+        <Description>Minimal Result pattern primitives for modern .NET: Result, and Error as readonly struct types. No ASP.NET Core dependency.</Description>
+        <PackageTags>result;result-pattern;error;readonly-struct;csharp;dotnet;domain;application</PackageTags>
     </PropertyGroup>
 
 </Project>

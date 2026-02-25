@@ -1,8 +1,8 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
 
     <PropertyGroup>
-        <Description>FluentValidation bridge for ResultCrafter. Converts validation failures to Error.BadRequest with structured field errors.</Description>
-        <PackageTags>fluentvalidation;validation;result-pattern;error-handling;dotnet;csharp</PackageTags>
+        <Description>FluentValidation bridge for ResultCrafter. Converts validation failures to Error.BadRequest with structured field-error dictionaries.</Description>
+        <PackageTags>fluentvalidation;validation;result-pattern;error-handling;problem-details;dotnet;csharp</PackageTags>
     </PropertyGroup>
 
     <ItemGroup>

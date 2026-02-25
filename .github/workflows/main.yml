@@ -1,4 +1,4 @@
-name: Publish NuGet Packages
+name: Publish ResultCrafter To NuGet
 
 env:
   NUGET_SOURCE: 'https://api.nuget.org/v3/index.json'
@@ -8,6 +8,9 @@ on:
   push:
     branches:
       - main
+
+permissions:
+  contents: read
 
 jobs:
   publish:
@@ -59,9 +62,23 @@ jobs:
           --configuration Release
           --output ${{ env.OUTPUT_DIR }}
 
-      - name: Publish all packages
+      - name: Pack ResultCrafter.MediatR
+        run: >
+          dotnet pack src/ResultCrafter.MediatR/ResultCrafter.MediatR.csproj
+          --no-build
+          --configuration Release
+          --output ${{ env.OUTPUT_DIR }}
+
+      - name: Publish NuGet packages
         run: >
           dotnet nuget push "${{ env.OUTPUT_DIR }}/*.nupkg"
+          --api-key ${{ secrets.NUGET_API_KEY }}
+          --source ${{ env.NUGET_SOURCE }}
+          --skip-duplicate
+
+      - name: Publish symbol packages
+        run: >
+          dotnet nuget push "${{ env.OUTPUT_DIR }}/*.snupkg"
           --api-key ${{ secrets.NUGET_API_KEY }}
           --source ${{ env.NUGET_SOURCE }}
           --skip-duplicate

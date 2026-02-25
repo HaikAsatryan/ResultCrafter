@@ -46,12 +46,16 @@ public static class ControllerResultExtensions
       public ActionResult<T> ToCreatedResult()
       {
          if (!result.IsSuccess)
+         {
             return new ProblemActionResult(result.Error!.Value);
+         }
 
          if (result.Kind != SuccessKind.Created || result.Location is null)
+         {
             throw new InvalidOperationException(
                $"ToCreatedResult requires a Result<T> constructed via Result<T>.Created(string, T). " +
-               $"Got Kind={result.Kind}, Location={(result.Location is null ? "null" : $"\"{result.Location}\"")}.");
+               $"Got Kind={result.Kind}, Location={(result.Location is null ? "null" : $"{result.Location}")}.");
+         }
 
          return new CreatedResult(result.Location, result.Value!);
       }

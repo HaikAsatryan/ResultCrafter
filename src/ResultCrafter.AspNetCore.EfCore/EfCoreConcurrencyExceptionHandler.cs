@@ -1,5 +1,6 @@
 ﻿using Microsoft.AspNetCore.Diagnostics;
 using Microsoft.AspNetCore.Http;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using ResultCrafter.AspNetCore.ProblemDetails;
@@ -14,8 +15,10 @@ internal sealed class EfCoreConcurrencyExceptionHandler(ILogger<EfCoreConcurrenc
       Exception exception,
       CancellationToken cancellationToken)
    {
-      if (exception is not Microsoft.EntityFrameworkCore.DbUpdateConcurrencyException)
+      if (exception is not DbUpdateConcurrencyException)
+      {
          return false;
+      }
 
       if (httpContext.Response.HasStarted)
       {

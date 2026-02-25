@@ -16,7 +16,6 @@
         <PackageIcon>ResultCrafterLogo.png</PackageIcon>
         <PackageReadmeFile>README.md</PackageReadmeFile>
 
-        <!-- Prefer versioning from CI/tags later; OK to keep fixed while bootstrapping -->
         <Version>1.0.0</Version>
         <PackageReleaseNotes>Initial public release.</PackageReleaseNotes>
 
