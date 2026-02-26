@@ -16,8 +16,8 @@
         <PackageIcon>ResultCrafterLogo.png</PackageIcon>
         <PackageReadmeFile>README.md</PackageReadmeFile>
 
-        <Version>1.1.0</Version>
-        <PackageReleaseNotes>Extended support to .net 8 and .net 9 as well</PackageReleaseNotes>
+        <Version>1.1.1</Version>
+        <PackageReleaseNotes>Suppressed all warrnings by adding missing XML documentations on public methods</PackageReleaseNotes>
 
         <!-- Build quality -->
         <TreatWarningsAsErrors>false</TreatWarningsAsErrors>

@@ -38,14 +38,33 @@ public readonly struct Error : IEquatable<Error>
 
    // ── Simple errors ─────────────────────────────────────────────────────────
 
+   /// <summary>Creates a <see cref="ErrorType.NotFound" /> error (HTTP 404).</summary>
+   /// <param name="detail">Optional human-readable description. Falls back to a catalog default when <see langword="null" />.</param>
    public static Error NotFound(string? detail = null) => new(ErrorType.NotFound, detail, null);
+
+   /// <summary>Creates an <see cref="ErrorType.Unauthorized" /> error (HTTP 401).</summary>
+   /// <param name="detail">Optional human-readable description. Falls back to a catalog default when <see langword="null" />.</param>
    public static Error Unauthorized(string? detail = null) => new(ErrorType.Unauthorized, detail, null);
+
+   /// <summary>Creates a <see cref="ErrorType.Forbidden" /> error (HTTP 403).</summary>
+   /// <param name="detail">Optional human-readable description. Falls back to a catalog default when <see langword="null" />.</param>
    public static Error Forbidden(string? detail = null) => new(ErrorType.Forbidden, detail, null);
+
+   /// <summary>Creates a <see cref="ErrorType.Conflict" /> error (HTTP 409).</summary>
+   /// <param name="detail">Optional human-readable description. Falls back to a catalog default when <see langword="null" />.</param>
    public static Error Conflict(string? detail = null) => new(ErrorType.Conflict, detail, null);
+
+   /// <summary>Creates a <see cref="ErrorType.ConcurrencyConflict" /> error (HTTP 409).</summary>
+   /// <param name="detail">Optional human-readable description. Falls back to a catalog default when <see langword="null" />.</param>
    public static Error ConcurrencyConflict(string? detail = null) => new(ErrorType.ConcurrencyConflict, detail, null);
 
    // ── BadRequest ────────────────────────────────────────────────────────────
 
+   /// <summary>
+   ///    Creates a <see cref="ErrorType.BadRequest" /> error (HTTP 400) with a prose reason.
+   /// </summary>
+   /// <param name="detail">A non-empty, human-readable description of the problem.</param>
+   /// <exception cref="ArgumentException">Thrown when <paramref name="detail" /> is null, empty, or whitespace.</exception>
    public static Error BadRequest(string detail)
    {
       ArgumentException.ThrowIfNullOrWhiteSpace(detail);
@@ -56,6 +75,15 @@ public readonly struct Error : IEquatable<Error>
    ///    Creates a <see cref="ErrorType.BadRequest" /> error (HTTP 400) with field-level validation errors.
    ///    The passed dictionary and arrays are defensively copied.
    /// </summary>
+   /// <param name="errors">
+   ///    A non-empty dictionary mapping field names to one or more error messages.
+   ///    Keys are normalised to case-insensitive comparison. At least one entry is required.
+   /// </param>
+   /// <param name="detail">Optional prose summary. Falls back to a catalog default when <see langword="null" />.</param>
+   /// <exception cref="ArgumentNullException">Thrown when <paramref name="errors" /> is <see langword="null" />.</exception>
+   /// <exception cref="ArgumentException">
+   ///    Thrown when <paramref name="errors" /> is empty or contains a null/whitespace key.
+   /// </exception>
    public static Error BadRequest(Dictionary<string, string[]> errors, string? detail = null)
    {
       ArgumentNullException.ThrowIfNull(errors);
@@ -117,7 +145,7 @@ public readonly struct Error : IEquatable<Error>
             entry = values.Aggregate(entry,
                (current, v) => HashCode.Combine(current, StringComparer.Ordinal.GetHashCode(v)));
 
-            // Use addition instead of XOR — avoids self-cancellation of duplicate entries
+            // Addition instead of XOR — avoids self-cancellation of duplicate entries.
             entriesHash += entry;
          }
 
@@ -127,7 +155,10 @@ public readonly struct Error : IEquatable<Error>
       }
    }
 
+   /// <summary>Returns <see langword="true" /> when <paramref name="left" /> and <paramref name="right" /> are equal.</summary>
    public static bool operator ==(Error left, Error right) => left.Equals(right);
+
+   /// <summary>Returns <see langword="true" /> when <paramref name="left" /> and <paramref name="right" /> are not equal.</summary>
    public static bool operator !=(Error left, Error right) => !left.Equals(right);
 
    private static bool ErrorsEqual(IReadOnlyDictionary<string, string[]>? a,
