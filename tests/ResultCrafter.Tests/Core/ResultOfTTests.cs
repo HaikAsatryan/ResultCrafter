@@ -166,4 +166,60 @@ public sealed class ResultOfTTests
 
       Assert.NotEqual(a, b);
    }
+
+   // ── Map ──────────────────────────────────────────────────────────────────
+
+   [Fact]
+   public void Map_Success_TransformsValue()
+   {
+      var result = Result<int>.Ok(42);
+      var mapped = result.Map(x => x.ToString());
+
+      Assert.True(mapped.IsSuccess);
+      Assert.Equal("42", mapped.Value);
+   }
+
+   [Fact]
+   public void Map_Failure_PropagatesError()
+   {
+      var error = Error.NotFound("gone");
+      var result = Result<int>.Fail(error);
+      var mapped = result.Map(x => x.ToString());
+
+      Assert.False(mapped.IsSuccess);
+      Assert.Equal(error, mapped.Error!.Value);
+   }
+
+   [Fact]
+   public void Map_Failure_DoesNotInvokeSelector()
+   {
+      var result = Result<int>.Fail(Error.NotFound());
+      var invoked = false;
+
+      result.Map(x =>
+      {
+         invoked = true;
+         return x.ToString();
+      });
+
+      Assert.False(invoked);
+   }
+
+   [Fact]
+   public void Map_PreservesKindAndLocation()
+   {
+      var result = Result<int>.Created("/api/items/1", 42);
+      var mapped = result.Map(x => x * 2);
+
+      Assert.Equal(SuccessKind.Created, mapped.Kind);
+      Assert.Equal("/api/items/1", mapped.Location);
+      Assert.Equal(84, mapped.Value);
+   }
+
+   [Fact]
+   public void Map_NullSelector_Throws()
+   {
+      var result = Result<int>.Ok(42);
+      Assert.Throws<ArgumentNullException>(() => result.Map<string>(null!));
+   }
 }

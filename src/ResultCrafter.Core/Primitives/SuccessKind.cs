@@ -20,5 +20,11 @@ public enum SuccessKind : byte
    ///    off to a background process. Optionally carries a <see cref="Result{T}.Location" />
    ///    poll URL.
    /// </summary>
-   Accepted = 2
+   Accepted = 2,
+
+   /// <summary>
+   ///    Maps to HTTP 204 No Content. Used by the void <see cref="Result" /> to indicate
+   ///    a successful operation that returns no body.
+   /// </summary>
+   NoContent = 3
 }

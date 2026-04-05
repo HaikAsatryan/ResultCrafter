@@ -87,7 +87,7 @@ public sealed class ResultValidationBehavior<TRequest, T>(IEnumerable<IValidator
 
       var fieldErrors = failures
                         .GroupBy(
-                           f => string.IsNullOrEmpty(f.PropertyName) ? "_" : f.PropertyName,
+                           f => string.IsNullOrWhiteSpace(f.PropertyName) ? "_" : f.PropertyName,
                            StringComparer.OrdinalIgnoreCase)
                         .ToDictionary(
                            g => g.Key,

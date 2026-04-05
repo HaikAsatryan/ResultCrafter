@@ -16,8 +16,8 @@
         <PackageIcon>ResultCrafterLogo.png</PackageIcon>
         <PackageReadmeFile>README.md</PackageReadmeFile>
 
-        <Version>1.1.1</Version>
-        <PackageReleaseNotes>Suppressed all warrnings by adding missing XML documentations on public methods</PackageReleaseNotes>
+        <Version>1.2.0</Version>
+        <PackageReleaseNotes>Added ErrorType.None sentinel, SuccessKind on void Result, Map method, RFC 9110 type URIs, and fixed default(Error) trap.</PackageReleaseNotes>
 
         <!-- Build quality -->
         <TreatWarningsAsErrors>false</TreatWarningsAsErrors>

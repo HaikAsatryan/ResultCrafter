@@ -88,21 +88,49 @@ public static class MinimalApiResultExtensions
    ///    Maps a void <see cref="Result" /> to <c>204 NoContent</c> on success or
    ///    <c>ProblemDetails</c> on failure.
    /// </summary>
+   /// <remarks>
+   ///    The result must have been constructed via <see cref="Result.NoContent()" />;
+   ///    calling this on an <c>Accepted</c> result is a programming error
+   ///    and will throw <see cref="InvalidOperationException" />.
+   /// </remarks>
    public static Results<NoContent, ProblemHttpResult> ToNoContentResult(this Result result)
    {
-      return result.IsSuccess
-         ? TypedResults.NoContent()
-         : CreateProblem(result.Error!.Value);
+      if (!result.IsSuccess)
+      {
+         return CreateProblem(result.Error!.Value);
+      }
+
+      if (result.Kind != SuccessKind.NoContent)
+      {
+         throw new InvalidOperationException(
+            $"ToNoContentResult requires a Result constructed via Result.NoContent(). Got Kind={result.Kind}.");
+      }
+
+      return TypedResults.NoContent();
    }
 
    /// <summary>
    ///    Maps a void <see cref="Result" /> to <c>202 Accepted</c> on success or
    ///    <c>ProblemDetails</c> on failure.
    /// </summary>
+   /// <remarks>
+   ///    The result must have been constructed via <see cref="Result.Accepted" />;
+   ///    calling this on a <c>NoContent</c> result is a programming error
+   ///    and will throw <see cref="InvalidOperationException" />.
+   /// </remarks>
    public static Results<Accepted, ProblemHttpResult> ToAcceptedResult(this Result result)
    {
-      return result.IsSuccess
-         ? TypedResults.Accepted(result.AcceptedLocation)
-         : CreateProblem(result.Error!.Value);
+      if (!result.IsSuccess)
+      {
+         return CreateProblem(result.Error!.Value);
+      }
+
+      if (result.Kind != SuccessKind.Accepted)
+      {
+         throw new InvalidOperationException(
+            $"ToAcceptedResult requires a Result constructed via Result.Accepted(). Got Kind={result.Kind}.");
+      }
+
+      return TypedResults.Accepted(result.AcceptedLocation);
    }
 }

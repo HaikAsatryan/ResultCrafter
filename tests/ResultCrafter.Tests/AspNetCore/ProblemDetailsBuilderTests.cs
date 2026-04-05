@@ -15,6 +15,14 @@ public sealed class ProblemDetailsBuilderTests
    }
 
    [Fact]
+   public void Build_SetsTypeUri()
+   {
+      var pd = ProblemDetailsBuilder.Build(Error.NotFound());
+
+      Assert.Equal("https://tools.ietf.org/html/rfc9110#section-15.5.5", pd.Type);
+   }
+
+   [Fact]
    public void Build_SetsDetailFromError()
    {
       var pd = ProblemDetailsBuilder.Build(Error.NotFound("Item 42 does not exist."));

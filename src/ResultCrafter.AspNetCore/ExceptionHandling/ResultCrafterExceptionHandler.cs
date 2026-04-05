@@ -81,7 +81,6 @@ public sealed class ResultCrafterExceptionHandler(
 
    /// <summary>
    ///    Determines at startup whether this environment should expose exception details.
-   ///    The single ToLowerInvariant() allocation happens once and is not on a hot path.
    /// </summary>
    private static bool ComputeIsNonProd(IHostEnvironment env)
    {
@@ -96,15 +95,14 @@ public sealed class ResultCrafterExceptionHandler(
          return false;
       }
 
-      var lower = name.ToLowerInvariant();
-      return lower.Contains("dev", StringComparison.Ordinal)
-             || lower.Contains("local", StringComparison.Ordinal)
-             || lower.Contains("test", StringComparison.Ordinal)
-             || lower.Contains("qa", StringComparison.Ordinal)
-             || lower.Contains("stage", StringComparison.Ordinal)
-             || lower.Contains("uat", StringComparison.Ordinal)
-             || lower.Contains("preprod", StringComparison.Ordinal)
-             || lower.Contains("sandbox", StringComparison.Ordinal)
-             || lower.Contains("debug", StringComparison.Ordinal);
+      return name.Contains("dev", StringComparison.OrdinalIgnoreCase)
+             || name.Contains("local", StringComparison.OrdinalIgnoreCase)
+             || name.Contains("test", StringComparison.OrdinalIgnoreCase)
+             || name.Contains("qa", StringComparison.OrdinalIgnoreCase)
+             || name.Contains("stage", StringComparison.OrdinalIgnoreCase)
+             || name.Contains("uat", StringComparison.OrdinalIgnoreCase)
+             || name.Contains("preprod", StringComparison.OrdinalIgnoreCase)
+             || name.Contains("sandbox", StringComparison.OrdinalIgnoreCase)
+             || name.Contains("debug", StringComparison.OrdinalIgnoreCase);
    }
 }

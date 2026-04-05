@@ -3,6 +3,9 @@ using Microsoft.Extensions.DependencyInjection;
 
 namespace ResultCrafter.AspNetCore.DependencyInjection;
 
+/// <summary>
+///    Extension methods for configuring the ResultCrafter middleware pipeline.
+/// </summary>
 public static class ApplicationBuilderExtensions
 {
    /// <summary>

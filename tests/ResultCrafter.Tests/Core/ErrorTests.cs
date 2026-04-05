@@ -172,7 +172,7 @@ public sealed class ErrorTests
       var error = Error.NotFound();
       Assert.Equal("NotFound", error.ToString());
    }
-   
+
    [Fact]
    public void Equality_ValidationErrorsWithSameContent_AreEqual()
    {
@@ -206,5 +206,20 @@ public sealed class ErrorTests
 
       Assert.False(error.Errors!.ContainsKey("new"));
       Assert.Equal("Required.", error.Errors["email"][0]);
+   }
+
+   // ── ErrorType.None guard ──────────────────────────────────────────────────
+
+   [Fact]
+   public void DefaultError_HasTypeNone()
+   {
+      var error = default(Error);
+      Assert.Equal(ErrorType.None, error.Type);
+   }
+
+   [Fact]
+   public void DefaultErrorType_IsNone()
+   {
+      Assert.Equal(ErrorType.None, default);
    }
 }

@@ -6,6 +6,9 @@ using ResultCrafter.AspNetCore.Options;
 
 namespace ResultCrafter.AspNetCore.DependencyInjection;
 
+/// <summary>
+///    Extension methods for registering ResultCrafter services with the DI container.
+/// </summary>
 public static class ServiceCollectionExtensions
 {
    /// <summary>

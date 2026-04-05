@@ -16,7 +16,7 @@ namespace ResultCrafter.AspNetCore.Controllers;
 ///    error response the same RFC 9457 shape, enrichment, and structured logging as a
 ///    Minimal API error response.
 ///    <para>
-///       Decorate controller actions with the <see cref="ControllerResultAttributes" /> family
+///       Decorate controller actions with the ResultCrafter attribute family
 ///       (<c>[ProducesNotFound]</c>, <c>[ProducesBadRequest]</c>, etc.) to add the
 ///       corresponding ProblemDetails status codes to the OpenAPI schema automatically.
 ///    </para>
@@ -81,21 +81,49 @@ public static class ControllerResultExtensions
    ///    Maps a void <see cref="Result" /> to <c>204 NoContent</c> on success or
    ///    <c>ProblemDetails</c> on failure.
    /// </summary>
+   /// <remarks>
+   ///    The result must have been constructed via <see cref="Result.NoContent()" />;
+   ///    calling this on an <c>Accepted</c> result is a programming error
+   ///    and will throw <see cref="InvalidOperationException" />.
+   /// </remarks>
    public static IActionResult ToNoContentResult(this Result result)
    {
-      return result.IsSuccess
-         ? new NoContentResult()
-         : new ProblemActionResult(result.Error!.Value);
+      if (!result.IsSuccess)
+      {
+         return new ProblemActionResult(result.Error!.Value);
+      }
+
+      if (result.Kind != SuccessKind.NoContent)
+      {
+         throw new InvalidOperationException(
+            $"ToNoContentResult requires a Result constructed via Result.NoContent(). Got Kind={result.Kind}.");
+      }
+
+      return new NoContentResult();
    }
 
    /// <summary>
    ///    Maps a void <see cref="Result" /> to <c>202 Accepted</c> on success or
    ///    <c>ProblemDetails</c> on failure.
    /// </summary>
+   /// <remarks>
+   ///    The result must have been constructed via <see cref="Result.Accepted" />;
+   ///    calling this on a <c>NoContent</c> result is a programming error
+   ///    and will throw <see cref="InvalidOperationException" />.
+   /// </remarks>
    public static IActionResult ToAcceptedResult(this Result result)
    {
-      return result.IsSuccess
-         ? new AcceptedResult(result.AcceptedLocation, null)
-         : new ProblemActionResult(result.Error!.Value);
+      if (!result.IsSuccess)
+      {
+         return new ProblemActionResult(result.Error!.Value);
+      }
+
+      if (result.Kind != SuccessKind.Accepted)
+      {
+         throw new InvalidOperationException(
+            $"ToAcceptedResult requires a Result constructed via Result.Accepted(). Got Kind={result.Kind}.");
+      }
+
+      return new AcceptedResult(result.AcceptedLocation, null);
    }
 }

@@ -79,6 +79,29 @@ public sealed class ResultVoidTests
       Assert.Equal(ErrorType.NotFound, result.Error!.Value.Type);
    }
 
+   // ── SuccessKind ─────────────────────────────────────────────────────────
+
+   [Fact]
+   public void NoContent_KindIsNoContent()
+   {
+      var result = Result.NoContent();
+      Assert.Equal(SuccessKind.NoContent, result.Kind);
+   }
+
+   [Fact]
+   public void Accepted_KindIsAccepted()
+   {
+      var result = Result.Accepted();
+      Assert.Equal(SuccessKind.Accepted, result.Kind);
+   }
+
+   [Fact]
+   public void Fail_KindIsOk()
+   {
+      var result = Result.Fail(Error.NotFound());
+      Assert.Equal(SuccessKind.Ok, result.Kind);
+   }
+
    // ── Equality ──────────────────────────────────────────────────────────────
 
    [Fact]
@@ -95,6 +118,15 @@ public sealed class ResultVoidTests
    {
       var a = Result.NoContent();
       var b = Result.Fail(Error.NotFound());
+
+      Assert.NotEqual(a, b);
+   }
+
+   [Fact]
+   public void Equality_NoContentAndAccepted_AreNotEqual()
+   {
+      var a = Result.NoContent();
+      var b = Result.Accepted();
 
       Assert.NotEqual(a, b);
    }

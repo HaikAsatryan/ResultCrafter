@@ -4,6 +4,9 @@ using ResultCrafter.AspNetCore.ExceptionHandling;
 
 namespace ResultCrafter.AspNetCore.EfCore;
 
+/// <summary>
+///    Extension methods for registering the ResultCrafter EF Core integration.
+/// </summary>
 public static class ServiceCollectionExtensions
 {
    /// <summary>

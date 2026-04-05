@@ -23,6 +23,7 @@ public static class ProblemDetailsBuilder
    {
       var pd = new Microsoft.AspNetCore.Mvc.ProblemDetails
       {
+         Type = HttpErrorCatalog.TypeUri(error.Type),
          Status = HttpErrorCatalog.Status(error.Type),
          Title = HttpErrorCatalog.Title(error.Type),
          Detail = HttpErrorCatalog.ResolveDetail(error),

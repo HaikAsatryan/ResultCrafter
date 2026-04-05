@@ -1,4 +1,5 @@
-﻿using FluentValidation;
+using System.Collections.Concurrent;
+using FluentValidation;
 using ResultCrafter.Core.Primitives;
 using ResultCrafter.FluentValidation;
 
@@ -6,67 +7,67 @@ namespace ResultCrafter.Demo;
 
 /// <summary>
 ///    In-memory service that exercises every ResultCrafter path:
-///    Success kinds  →  Ok, Created, Accepted (typed), Accepted (void), NoContent
-///    Error types    →  BadRequest (plain + field errors via FluentValidation), NotFound,
+///    Success kinds  :  Ok, Created, Accepted (typed), Accepted (void), NoContent
+///    Error types    :  BadRequest (plain + field errors via FluentValidation), NotFound,
 ///    Conflict, ConcurrencyConflict, Unauthorized, Forbidden
-///    Exception path →  unhandled throw → 500 via IExceptionHandler
+///    Exception path :  unhandled throw -> 500 via IExceptionHandler
 /// </summary>
 public sealed class ItemService(IValidator<CreateItemRequest> createValidator)
 {
    // Tracks items currently being processed async (simulates a background queue).
-   private readonly HashSet<int> _processingQueue = [];
+   private readonly ConcurrentDictionary<int, byte> _processingQueue = new();
    // ── Storage ───────────────────────────────────────────────────────────────
 
-   private readonly Dictionary<int, ItemEntity> _store = new();
-   private int _nextId = 1;
+   private readonly ConcurrentDictionary<int, ItemEntity> _store = new();
+   private int _nextId;
 
    // ── Queries ───────────────────────────────────────────────────────────────
 
-   /// <summary>GET /items/{id} → Ok or NotFound</summary>
+   /// <summary>GET /items/{id} -> Ok or NotFound</summary>
    public async Task<Result<ItemDto>> GetAsync(int id, CancellationToken ct)
    {
-      await Task.CompletedTask; // represents a real DB call
+      await Task.CompletedTask; // simulates a real async DB call
 
       if (!_store.TryGetValue(id, out var entity))
       {
-         return Result<ItemDto>.Fail(Error.NotFound($"Item {id} does not exist."));
+         return Error.NotFound($"Item {id} does not exist.");
       }
 
-      return Result<ItemDto>.Ok(entity.ToDto());
+      return entity.ToDto();
    }
 
    /// <summary>
-   ///    GET /items/admin → Ok or Unauthorized or Forbidden
-   ///    Unauthorized  — no API key header provided at all.
-   ///    Forbidden     — key present but the role is not "admin".
+   ///    GET /items/admin -> Ok or Unauthorized or Forbidden
+   ///    Unauthorized  : no API key header provided at all.
+   ///    Forbidden     : key present but the role is not "admin".
    /// </summary>
    public async Task<Result<List<ItemDto>>> GetAllAdminAsync(string? apiKey,
       string? role,
       CancellationToken ct)
    {
-      await Task.CompletedTask;
+      await Task.CompletedTask; // simulates a real async DB call
 
       if (string.IsNullOrWhiteSpace(apiKey))
       {
-         return Result<List<ItemDto>>.Fail(Error.Unauthorized("A valid API key is required."));
+         return Error.Unauthorized("A valid API key is required.");
       }
 
       if (!string.Equals(role, "admin", StringComparison.OrdinalIgnoreCase))
       {
-         return Result<List<ItemDto>>.Fail(Error.Forbidden("Only admins can list all items."));
+         return Error.Forbidden("Only admins can list all items.");
       }
 
       var all = _store.Values
                       .Select(e => e.ToDto())
                       .ToList();
 
-      return Result<List<ItemDto>>.Ok(all);
+      return all;
    }
 
    // ── Commands ──────────────────────────────────────────────────────────────
 
    /// <summary>
-   ///    POST /items → Created or BadRequest (field errors via FluentValidation)
+   ///    POST /items -> Created or BadRequest (field errors via FluentValidation)
    /// </summary>
    public async Task<Result<ItemDto>> CreateAsync(CreateItemRequest req, CancellationToken ct)
    {
@@ -76,7 +77,7 @@ public sealed class ItemService(IValidator<CreateItemRequest> createValidator)
          return Result<ItemDto>.Fail(error.Value);
       }
 
-      var id = _nextId++;
+      var id = Interlocked.Increment(ref _nextId);
       var entity = new ItemEntity(id, req.Name!, req.Price, req.Stock, 1);
       _store[id] = entity;
 
@@ -84,30 +85,29 @@ public sealed class ItemService(IValidator<CreateItemRequest> createValidator)
    }
 
    /// <summary>
-   ///    PUT /items/{id} → Ok or NotFound, BadRequest (field errors), Conflict, ConcurrencyConflict
-   ///    Conflict            — another item already has the same name.
-   ///    ConcurrencyConflict — the request's version token is stale.
+   ///    PUT /items/{id} -> Ok or NotFound, BadRequest (field errors), Conflict, ConcurrencyConflict
+   ///    Conflict            : another item already has the same name.
+   ///    ConcurrencyConflict : the request's version token is stale.
    /// </summary>
    public async Task<Result<ItemDto>> UpdateAsync(int id, UpdateItemRequest req, CancellationToken ct)
    {
-      await Task.CompletedTask;
+      await Task.CompletedTask; // simulates a real async DB call
 
       if (!_store.TryGetValue(id, out var entity))
       {
-         return Result<ItemDto>.Fail(Error.NotFound($"Item {id} does not exist."));
+         return Error.NotFound($"Item {id} does not exist.");
       }
 
       if (entity.Version != req.Version)
       {
-         return Result<ItemDto>.Fail(
-            Error.ConcurrencyConflict(
-               $"Item {id} was modified by another request. Fetch the latest version and retry."));
+         return Error.ConcurrencyConflict(
+            $"Item {id} was modified by another request. Fetch the latest version and retry.");
       }
 
       var errors = ValidateUpdate(req);
       if (errors.Count > 0)
       {
-         return Result<ItemDto>.Fail(Error.BadRequest(errors));
+         return Error.BadRequest(errors);
       }
 
       var nameTaken = _store.Values.Any(e =>
@@ -115,7 +115,7 @@ public sealed class ItemService(IValidator<CreateItemRequest> createValidator)
 
       if (nameTaken)
       {
-         return Result<ItemDto>.Fail(Error.Conflict($"An item named '{req.Name}' already exists."));
+         return Error.Conflict($"An item named '{req.Name}' already exists.");
       }
 
       var updated = entity with
@@ -127,37 +127,37 @@ public sealed class ItemService(IValidator<CreateItemRequest> createValidator)
       };
 
       _store[id] = updated;
-      return Result<ItemDto>.Ok(updated.ToDto());
+      return updated.ToDto();
    }
 
-   /// <summary>DELETE /items/{id} → NoContent or NotFound</summary>
+   /// <summary>DELETE /items/{id} -> NoContent or NotFound</summary>
    public async Task<Result> DeleteAsync(int id, CancellationToken ct)
    {
-      await Task.CompletedTask;
+      await Task.CompletedTask; // simulates a real async DB call
 
-      return !_store.Remove(id)
+      return !_store.TryRemove(id, out _)
          ? Result.Fail(Error.NotFound($"Item {id} does not exist."))
          : Result.NoContent();
    }
 
    /// <summary>
-   ///    POST /items/{id}/reserve → Accepted&lt;ItemDto&gt; or NotFound or Forbidden
+   ///    POST /items/{id}/reserve -> Accepted(ItemDto) or NotFound or Forbidden
    ///    Returns Accepted (202 with body) because reservation triggers an async
-   ///    background workflow — the item is not fully reserved yet.
-   ///    Forbidden — item is already reserved by someone else.
+   ///    background workflow : the item is not fully reserved yet.
+   ///    Forbidden : item is already reserved by someone else.
    /// </summary>
    public async Task<Result<ItemDto>> ReserveAsync(int id, CancellationToken ct)
    {
-      await Task.CompletedTask;
+      await Task.CompletedTask; // simulates a real async DB call
 
       if (!_store.TryGetValue(id, out var entity))
       {
-         return Result<ItemDto>.Fail(Error.NotFound($"Item {id} does not exist."));
+         return Error.NotFound($"Item {id} does not exist.");
       }
 
       if (entity.IsReserved)
       {
-         return Result<ItemDto>.Fail(Error.Forbidden($"Item {id} is already reserved and cannot be taken."));
+         return Error.Forbidden($"Item {id} is already reserved and cannot be taken.");
       }
 
       var reserved = entity with
@@ -171,18 +171,18 @@ public sealed class ItemService(IValidator<CreateItemRequest> createValidator)
    }
 
    /// <summary>
-   ///    POST /items/bulk-delete → Accepted (void) or BadRequest
-   ///    BadRequest with a plain detail string — empty or null ID list.
-   ///    BadRequest with a structured errors dict — list contains invalid entries.
+   ///    POST /items/bulk-delete -> Accepted (void) or BadRequest
+   ///    BadRequest with a plain detail string : empty or null ID list.
+   ///    BadRequest with a structured errors dict : list contains invalid entries.
    ///    Returns Accepted (void, 202 no body) because deletion is queued asynchronously.
    /// </summary>
    public async Task<Result> BulkDeleteAsync(BulkDeleteRequest req, CancellationToken ct)
    {
-      await Task.CompletedTask;
+      await Task.CompletedTask; // simulates a real async DB call
 
       if (req.Ids is null || req.Ids.Count == 0)
       {
-         return Result.Fail(Error.BadRequest("At least one item ID must be provided."));
+         return Error.BadRequest("At least one item ID must be provided.");
       }
 
       var fieldErrors = new Dictionary<string, string[]>();
@@ -206,12 +206,12 @@ public sealed class ItemService(IValidator<CreateItemRequest> createValidator)
 
       if (fieldErrors.Count > 0)
       {
-         return Result.Fail(Error.BadRequest(fieldErrors));
+         return Error.BadRequest(fieldErrors);
       }
 
       foreach (var id in req.Ids)
       {
-         _processingQueue.Add(id);
+         _processingQueue.TryAdd(id, 0);
       }
 
       // 202: caller should check back later; no Location because it's a queue.

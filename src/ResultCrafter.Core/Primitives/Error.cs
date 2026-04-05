@@ -31,6 +31,13 @@ public readonly struct Error : IEquatable<Error>
 
    private Error(ErrorType type, string? detail, IReadOnlyDictionary<string, string[]>? errors)
    {
+      if (type == ErrorType.None)
+      {
+         throw new ArgumentException(
+            "ErrorType.None is not a valid error type. Use one of the Error factory methods.",
+            nameof(type));
+      }
+
       Type = type;
       Detail = detail;
       Errors = errors;
@@ -40,23 +47,38 @@ public readonly struct Error : IEquatable<Error>
 
    /// <summary>Creates a <see cref="ErrorType.NotFound" /> error (HTTP 404).</summary>
    /// <param name="detail">Optional human-readable description. Falls back to a catalog default when <see langword="null" />.</param>
-   public static Error NotFound(string? detail = null) => new(ErrorType.NotFound, detail, null);
+   public static Error NotFound(string? detail = null)
+   {
+      return new Error(ErrorType.NotFound, detail, null);
+   }
 
    /// <summary>Creates an <see cref="ErrorType.Unauthorized" /> error (HTTP 401).</summary>
    /// <param name="detail">Optional human-readable description. Falls back to a catalog default when <see langword="null" />.</param>
-   public static Error Unauthorized(string? detail = null) => new(ErrorType.Unauthorized, detail, null);
+   public static Error Unauthorized(string? detail = null)
+   {
+      return new Error(ErrorType.Unauthorized, detail, null);
+   }
 
    /// <summary>Creates a <see cref="ErrorType.Forbidden" /> error (HTTP 403).</summary>
    /// <param name="detail">Optional human-readable description. Falls back to a catalog default when <see langword="null" />.</param>
-   public static Error Forbidden(string? detail = null) => new(ErrorType.Forbidden, detail, null);
+   public static Error Forbidden(string? detail = null)
+   {
+      return new Error(ErrorType.Forbidden, detail, null);
+   }
 
    /// <summary>Creates a <see cref="ErrorType.Conflict" /> error (HTTP 409).</summary>
    /// <param name="detail">Optional human-readable description. Falls back to a catalog default when <see langword="null" />.</param>
-   public static Error Conflict(string? detail = null) => new(ErrorType.Conflict, detail, null);
+   public static Error Conflict(string? detail = null)
+   {
+      return new Error(ErrorType.Conflict, detail, null);
+   }
 
    /// <summary>Creates a <see cref="ErrorType.ConcurrencyConflict" /> error (HTTP 409).</summary>
    /// <param name="detail">Optional human-readable description. Falls back to a catalog default when <see langword="null" />.</param>
-   public static Error ConcurrencyConflict(string? detail = null) => new(ErrorType.ConcurrencyConflict, detail, null);
+   public static Error ConcurrencyConflict(string? detail = null)
+   {
+      return new Error(ErrorType.ConcurrencyConflict, detail, null);
+   }
 
    // ── BadRequest ────────────────────────────────────────────────────────────
 
@@ -117,7 +139,10 @@ public readonly struct Error : IEquatable<Error>
    }
 
    /// <inheritdoc />
-   public override bool Equals(object? obj) => obj is Error other && Equals(other);
+   public override bool Equals(object? obj)
+   {
+      return obj is Error other && Equals(other);
+   }
 
    /// <inheritdoc />
    public override int GetHashCode()
@@ -156,10 +181,16 @@ public readonly struct Error : IEquatable<Error>
    }
 
    /// <summary>Returns <see langword="true" /> when <paramref name="left" /> and <paramref name="right" /> are equal.</summary>
-   public static bool operator ==(Error left, Error right) => left.Equals(right);
+   public static bool operator ==(Error left, Error right)
+   {
+      return left.Equals(right);
+   }
 
    /// <summary>Returns <see langword="true" /> when <paramref name="left" /> and <paramref name="right" /> are not equal.</summary>
-   public static bool operator !=(Error left, Error right) => !left.Equals(right);
+   public static bool operator !=(Error left, Error right)
+   {
+      return !left.Equals(right);
+   }
 
    private static bool ErrorsEqual(IReadOnlyDictionary<string, string[]>? a,
       IReadOnlyDictionary<string, string[]>? b)
@@ -214,5 +245,8 @@ public readonly struct Error : IEquatable<Error>
    }
 
    /// <inheritdoc />
-   public override string ToString() => Detail is not null ? $"{Type}: {Detail}" : Type.ToString();
+   public override string ToString()
+   {
+      return Detail is not null ? $"{Type}: {Detail}" : Type.ToString();
+   }
 }

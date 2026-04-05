@@ -3,6 +3,9 @@ using ResultCrafter.Core.Primitives;
 
 namespace ResultCrafter.FluentValidation;
 
+/// <summary>
+///    Extension methods that bridge FluentValidation results to ResultCrafter <see cref="Error" /> values.
+/// </summary>
 public static class ValidatorExtensions
 {
    /// <summary>

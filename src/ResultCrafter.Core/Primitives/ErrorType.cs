@@ -7,6 +7,13 @@ namespace ResultCrafter.Core.Primitives;
 public enum ErrorType
 {
    /// <summary>
+   ///    The CLR default value. Not a valid error type. Exists so that
+   ///    <c>default(Error)</c> and <c>default(ErrorType)</c> are explicitly
+   ///    invalid rather than silently mapping to <see cref="BadRequest" />.
+   /// </summary>
+   None = 0,
+
+   /// <summary>
    ///    A business-rule violation or invalid input (HTTP 400).
    ///    When constructed with a field-errors dictionary via
    ///    <see cref="Error.BadRequest(Dictionary{string, string[]}, string?)" />,
@@ -14,23 +21,23 @@ public enum ErrorType
    ///    with the <c>errors</c> dictionary at the top level of the body.
    ///    Without a dictionary, a plain <c>ProblemDetails</c> response is returned.
    /// </summary>
-   BadRequest,
+   BadRequest = 1,
 
    /// <summary>The resource or entity could not be found. Maps to HTTP 404.</summary>
-   NotFound,
+   NotFound = 2,
 
    /// <summary>A write conflict was detected. Maps to HTTP 409.</summary>
-   Conflict,
+   Conflict = 3,
 
    /// <summary>The caller is not authenticated. Maps to HTTP 401.</summary>
-   Unauthorized,
+   Unauthorized = 4,
 
    /// <summary>The caller is authenticated but lacks the required permission. Maps to HTTP 403.</summary>
-   Forbidden,
+   Forbidden = 5,
 
    /// <summary>
    ///    Optimistic-concurrency token mismatch (HTTP 409).
    ///    The caller should re-fetch and retry.
    /// </summary>
-   ConcurrencyConflict
+   ConcurrencyConflict = 6
 }

@@ -22,6 +22,12 @@ public readonly struct Result : IEquatable<Result>
    public Error? Error { get; }
 
    /// <summary>
+   ///    The HTTP success variant this result maps to.
+   ///    <see cref="SuccessKind.Ok" /> on failure paths (CLR default).
+   /// </summary>
+   public SuccessKind Kind { get; }
+
+   /// <summary>
    ///    Optional poll URL for <see cref="Accepted" /> results. <see langword="null" />
    ///    for all other outcomes.
    /// </summary>
@@ -33,16 +39,17 @@ public readonly struct Result : IEquatable<Result>
    /// </summary>
    public bool IsSuccess => Error is null;
 
-   private Result(Error? error, string? acceptedLocation)
+   private Result(Error? error, SuccessKind kind, string? acceptedLocation)
    {
       Error = error;
+      Kind = kind;
       AcceptedLocation = acceptedLocation;
    }
 
    /// <summary>Creates a 204 No Content success result.</summary>
    public static Result NoContent()
    {
-      return new Result(null, null);
+      return new Result(null, SuccessKind.NoContent, null);
    }
 
    /// <summary>
@@ -51,13 +58,13 @@ public readonly struct Result : IEquatable<Result>
    /// </summary>
    public static Result Accepted(string? location = null)
    {
-      return new Result(null, location);
+      return new Result(null, SuccessKind.Accepted, location);
    }
 
    /// <summary>Creates a failure result carrying the given <paramref name="error" />.</summary>
    public static Result Fail(Error error)
    {
-      return new Result(error, null);
+      return new Result(error, SuccessKind.Ok, null);
    }
 
    /// <summary>
@@ -72,7 +79,7 @@ public readonly struct Result : IEquatable<Result>
    /// <inheritdoc />
    public bool Equals(Result other)
    {
-      return Error == other.Error && AcceptedLocation == other.AcceptedLocation;
+      return Error == other.Error && Kind == other.Kind && AcceptedLocation == other.AcceptedLocation;
    }
 
    /// <inheritdoc />
@@ -84,7 +91,7 @@ public readonly struct Result : IEquatable<Result>
    /// <inheritdoc />
    public override int GetHashCode()
    {
-      return HashCode.Combine(Error, AcceptedLocation);
+      return HashCode.Combine(Error, Kind, AcceptedLocation);
    }
 
    /// <inheritdoc />

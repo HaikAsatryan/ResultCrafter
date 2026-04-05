@@ -351,6 +351,26 @@ public sealed class ControllerResultExtensionsTests
       Assert.IsType<ProblemActionResult>(result.ToNoContentResult());
    }
 
+   // ════════════════════════════════════════════════════════
+   // Void Result SuccessKind mismatch throws
+   // ════════════════════════════════════════════════════════
+
+   [Fact]
+   public void ToNoContentResult_WhenKindIsAccepted_Throws()
+   {
+      var result = Result.Accepted();
+      var ex = Assert.Throws<InvalidOperationException>(() => result.ToNoContentResult());
+      Assert.Contains("Result.NoContent()", ex.Message);
+   }
+
+   [Fact]
+   public void ToAcceptedResult_WhenKindIsNoContent_Throws()
+   {
+      var result = Result.NoContent();
+      var ex = Assert.Throws<InvalidOperationException>(() => result.ToAcceptedResult());
+      Assert.Contains("Result.Accepted()", ex.Message);
+   }
+
    // ── Helpers ────────────────────────────────────────────────────────────────
 
    private static Error BuildError(ErrorType type)

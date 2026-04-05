@@ -3,183 +3,30 @@
 # ResultCrafter
 
 A minimal, opinionated Result pattern library for **modern .NET (8+)**, with built-in **RFC 9457 ProblemDetails**,
-structured logging, and first-class Minimal API support — plus full MVC controller support.
+structured logging, and first-class Minimal API support, plus full MVC controller support.
 
 ResultCrafter ships as five focused NuGet packages under the `ResultCrafter.*` prefix and **multi-targets**
 `net8.0`, `net9.0`, and `net10.0`.
 
 ---
 
-## Why I Built This
-
-I already maintain several libraries under the [Pandatech](https://www.nuget.org/profiles/Pandatech) umbrella - most of
-them solving specific infrastructure problems, built for production use at speed, and published publicly as a
-convenience. They are primarily used internally, and they do not follow strict semver or breaking change policies; if
-you adopt them, expect that they may change in ways that suit internal needs first.
-
-ResultCrafter is different. It is a personal project - no company behind it, no deadlines, no commercial interest. I
-spent a long time on every inch of it: the API design, the dependency choices, the documentation, the tests, the
-pipeline integration. It is the most carefully crafted library I have written, and I intend to keep it that way.
-
-I built ResultCrafter because, after evaluating many of the most-used and widely recommended Result pattern libraries in
-the .NET ecosystem, none of them felt like they were built specifically for the way .NET APIs are written today, in
-2026, with Minimal APIs and the modern `IExceptionHandler` interface. Some were too heavy. Some had no ASP.NET Core
-pipeline integration at all. That's a bold claim, and the alternatives section below backs it up honestly.
-
-This library is not a commercial product. I am not trying to sell anything. I work on this in my own time because I
-think the .NET community deserves a well-maintained, zero-bloat Result library that just works. I intend to keep it
-maintained for as long as I write .NET code.
-
----
-
 ## Table of Contents
 
-1. [Exceptions vs. the Result Pattern](#exceptions-vs-the-result-pattern)
-2. [Alternatives](#alternatives)
-3. [Packages](#packages)
-4. [Installation](#installation)
-5. [Getting Started](#getting-started)
-6. [Demo: Every Scenario](#demo-every-scenario)
-7. [MVC Controller Support](#mvc-controller-support)
-8. [FluentValidation Integration](#fluentvalidation-integration)
-9. [MediatR + FluentValidation Pipeline](#mediatr--fluentvalidation-pipeline)
-10. [EF Core Integration](#ef-core-integration)
-11. [Configuration](#configuration)
-12. [Performance](#performance)
-13. [Limitations](#limitations)
-14. [Roadmap](#roadmap)
-
----
-
-## Exceptions vs. the Result Pattern
-
-Before choosing ResultCrafter, it's worth understanding why you'd reach for a Result type at all instead of just
-throwing exceptions. And to be upfront about the trade-off, because there genuinely is one.
-
-### The honest trade-off
-
-`Task<User>` is cleaner to read than `Task<Result<User>>`. That is simply true. The exception-based approach wins on
-aesthetics - your method signatures stay lean, your service interfaces look uncluttered, and you can throw from anywhere
-in a deeply nested call stack without changing a single method signature above it.
-
-That cleanliness has a real cost though, and the cost compounds as your codebase grows.
-
-### The case against exceptions as control flow
-
-Exceptions were designed for truly unexpected situations: a network socket drops, a disk fills up, memory runs out. They
-were not designed to communicate that a user typed a wrong password or that a record wasn't found in a database. Yet in
-most .NET APIs, exceptions are used for exactly that, because it's the path of least resistance.
-
-The problems this creates are real.
-
-**Performance.** Throwing and catching an exception in .NET is expensive. The runtime has to capture the full stack
-trace, walk the call stack looking for a matching catch block, and allocate memory for the exception object. In a busy
-API where "user not found" and "invalid input" are completely normal, high-frequency outcomes, you are paying that cost
-on every request.
-
-**Lost context.** When an exception propagates up through the ASP.NET Core middleware pipeline, the HTTP context you
-were working with can become unreliable. In some cases, particularly once a response has started, there is nothing you
-can do to write a proper error response at all. The exception has torn the context out from under you.
-
-**Invisible contracts.** A method that returns `User` tells you nothing about what happens when the user doesn't exist.
-A method that returns `Result<User>` tells you explicitly: this can fail, and here are the ways it can fail. Callers are
-forced to handle both paths. No surprises.
-
-**try/catch pyramid in complex features.** In a modern API feature that calls multiple downstream services, you often
-end up with nested try/catch blocks or a single broad catch that loses granularity. With a Result type, you compose
-calls naturally without any try/catch at all.
-
-### When exceptions still make sense
-
-ResultCrafter does not pretend exceptions are always wrong. Truly unexpected failures - things you could not plan for
-and cannot recover from - still belong in exceptions. ResultCrafter's `IExceptionHandler` integration is specifically
-designed to catch these, log them properly, and convert them to a clean 500 ProblemDetails response. The two patterns
-are complementary, not mutually exclusive.
-
-The mental model is simple: **expected failures return a Result, unexpected failures throw an exception.**
-
----
-
-## Alternatives
-
-Here is an honest breakdown of several widely used alternatives, evaluated from the perspective of a Minimal API-first
-ASP.NET Core project that wants built-in ProblemDetails mapping and structured logging.
-
-### Ardalis.Result
-
-A well-known library by Steve Smith (ardalis). It has been around for a long time and has over seven million total NuGet
-downloads.
-
-**Where it's strong:** Wide adoption, good documentation, supports both MVC controllers and Minimal APIs, and has a
-FluentValidation companion package. If you need broad compatibility down to older .NET versions or need controller
-support, it is a solid, battle-tested choice.
-
-**Where it falls short for this use case:** The library's primary integration story is built around translating Results
-to `ActionResult` types for MVC controllers, which is a pattern that is increasingly considered legacy. Its
-`ToMinimalApiResult()` method was added later and is less integrated. There is no built-in structured logging: you wire
-that yourself. There is no built-in exception handling pipeline: again, you wire that yourself. It also pulls in more
-abstractions than you likely need, including `Map`, `Bind`, and Railway Oriented Programming helpers that make sense in
-functional contexts but add cognitive load in a typical business API. The result type itself is a class, not a struct,
-so every result allocation is a heap allocation.
-
-### ErrorOr
-
-A newer, stylish library that has gained real traction in the community. The syntax is clean and readable, and the
-single-package approach is appealing.
-
-**Where it's strong:** Ergonomic, small API surface, good community momentum, and probably the closest alternative to
-ResultCrafter in spirit. The `MatchFirst`, `Then`, and `FailIf` extension methods make chaining operations feel natural.
-
-**Where it falls short for this use case:** There is no first-party, batteries-included ASP.NET Core pipeline
-integration in the core package. ProblemDetails mapping and logging can be added, but you wire that in yourself (or via
-ecosystem extensions). To get an RFC 9457-compliant error response with structured log output, you write all of that
-yourself on top of the library. For greenfield projects where you want everything wired and ready to go, that is a
-meaningful gap.
-
-### FluentResults
-
-Probably the closest conceptually to ResultCrafter. It has a rich feature set and good documentation.
-
-**Where it's strong:** Mature, flexible, and has a thoughtful design. The `Reasons` system for attaching structured
-metadata to results is genuinely powerful.
-
-**Where it falls short for this use case:** The richness becomes the problem. Fluent chaining with `Bind`, `Map`,
-`Merge`, and `CheckIf` methods adds surface area that most APIs simply don't need. Logging integration exists but it is
-manual: you call `result.Log()` explicitly and configure a logging adapter separately. There is no automatic structured
-logging through `Microsoft.Extensions.Logging`. No ProblemDetails integration and no exception handling pipeline either.
-
-### OneOf
-
-A discriminated union library rather than a Result library specifically. It is genuinely useful for modelling complex
-domain types where a value can be one of several things.
-
-**Where it's strong:** If you need true discriminated unions in C# and want to be forced to handle every case at compile
-time, `OneOf` is excellent. The syntax reads well: `OneOf<Success, NotFound, Forbidden>`.
-
-**Where it falls short for this use case:** It is a general-purpose union type, not an API result abstraction. You get
-no HTTP status mapping, no ProblemDetails, no logging, and no exception handling. You would essentially be building
-everything in this library yourself on top of OneOf. The match syntax also becomes verbose in endpoint handlers.
-
-### LanguageExt
-
-An entire functional programming toolkit for C#. Monads, immutable collections, discriminated unions, optics, the works.
-
-**Where it's strong:** If you want to write genuinely functional C# with proper effect types, LanguageExt is the most
-complete option in the ecosystem by a wide margin.
-
-**Where it falls short for this use case:** It is not a Result library. It is a functional language extension. The
-learning curve is steep, the API surface is enormous, and adopting it in a typical business API usually means your
-entire team needs to think in functional terms or the code becomes inconsistent. If you just want to stop throwing
-`NotFoundException`, this is not the right tool.
-
-### Pandatech.ResponseCrafter
-
-An exception-driven library where you throw typed exceptions (`NotFoundException`, `BadRequestException`, etc.) and a
-middleware pipeline catches, maps, and logs them as ProblemDetails. It works, but it carries the same trade-offs as any
-exception-as-control-flow approach: performance cost, invisible failure contracts, and harder-to-test code.
-ResultCrafter
-was built to address exactly those issues. The two can coexist if you want exception handling for truly unexpected
-errors alongside Result types for expected ones.
+1. [Packages](#packages)
+2. [Installation](#installation)
+3. [Getting Started](#getting-started)
+4. [Demo: Every Scenario](#demo-every-scenario)
+5. [Map: Transforming Results](#map-transforming-results)
+6. [MVC Controller Support](#mvc-controller-support)
+7. [FluentValidation Integration](#fluentvalidation-integration)
+8. [MediatR + FluentValidation Pipeline](#mediatr--fluentvalidation-pipeline)
+9. [EF Core Integration](#ef-core-integration)
+10. [Configuration](#configuration)
+11. [Performance](#performance)
+12. [Limitations](#limitations)
+13. [Alternatives](#alternatives)
+14. [Why ResultCrafter](#why-resultcrafter)
+15. [Roadmap](#roadmap)
 
 ---
 
@@ -384,6 +231,46 @@ The 500 response (sanitised in production):
 
 ---
 
+## Map: Transforming Results
+
+`Result<T>.Map<TOut>()` transforms the success value while preserving the `SuccessKind` and `Location`.
+On the failure path, the error propagates unchanged without invoking the selector.
+
+```csharp
+// Without Map
+public async Task<Result<OrderDto>> GetAsync(int id, CancellationToken ct)
+{
+    var result = await _repo.FindAsync(id, ct); // returns Result<Order>
+    if (!result.IsSuccess)
+        return Result<OrderDto>.Fail(result.Error!.Value);
+    return Result<OrderDto>.Ok(result.Value!.ToDto());
+}
+
+// With Map
+public async Task<Result<OrderDto>> GetAsync(int id, CancellationToken ct)
+{
+    var result = await _repo.FindAsync(id, ct);
+    return result.Map(order => order.ToDto());
+}
+```
+
+`Map` works with all success kinds. A `Created` result stays `Created` after mapping; its `Location` is preserved:
+
+```csharp
+var result = Result<Order>.Created("/api/orders/1", order);
+var mapped = result.Map(o => o.ToDto()); // still Created, still /api/orders/1
+```
+
+> **Why only `Map`?** ResultCrafter intentionally does not ship `MapAsync`, `Bind`, `BindAsync`, or Railway-style
+> chaining. In practice, most .NET service calls are `async`, so `Bind` alone is not enough and you end up
+> needing the full `Map`/`MapAsync`/`Bind`/`BindAsync` matrix. The resulting code
+> (`await (await repo.FindAsync(id, ct)).BindAsync(o => billing.ChargeAsync(o, ct))`) is harder to read than
+> a simple `if (!result.IsSuccess) return ...` check. `Map` earns its place because the sync transform
+> (entity to DTO) is nearly universal. Everything beyond that adds complexity without proportional readability
+> gains.
+
+---
+
 ## MVC Controller Support
 
 > **ResultCrafter is Minimal API-first.** The controller integration is a fully working,
@@ -396,10 +283,6 @@ The 500 response (sanitised in production):
 Controller endpoints using ResultCrafter produce exactly the same outcomes as Minimal API endpoints: the same RFC 9457
 ProblemDetails shape, the same `instance` / `traceId` / `requestId` enrichment, the same structured 4xx logging, and
 the same `IExceptionHandler` behaviour for 5xx errors. None of this needs to be wired separately.
-
-This parity is not accidental. On the failure path, `ControllerResultExtensions` returns a `ProblemActionResult`, a
-thin `ActionResult` subclass that calls `IProblemDetailsService.WriteAsync` on execution, so the same
-`ConfigureResultCrafterProblemDetails` post-configure callback fires for both paths.
 
 ### Extension methods
 
@@ -436,9 +319,6 @@ using ResultCrafter.AspNetCore.Controllers;
 [ProducesConflict]      // 409
 ```
 
-All attributes have `AllowMultiple = true` and are picked up automatically by the OpenAPI tooling. No additional
-configuration is required.
-
 ### Example controller
 
 ```csharp
@@ -459,14 +339,6 @@ public sealed class OrdersController(OrderService svc) : ControllerBase
     [ProducesBadRequest]
     public async Task<ActionResult<OrderDto>> Create([FromBody] CreateOrderRequest req, CancellationToken ct) =>
         (await svc.CreateAsync(req, ct)).ToCreatedResult();
-
-    [HttpPut("{id:int}")]
-    [ProducesResponseType<OrderDto>(StatusCodes.Status200OK)]
-    [ProducesNotFound]
-    [ProducesBadRequest]
-    [ProducesConflict]
-    public async Task<ActionResult<OrderDto>> Update(int id, [FromBody] UpdateOrderRequest req, CancellationToken ct) =>
-        (await svc.UpdateAsync(id, req, ct)).ToOkResult();
 
     [HttpDelete("{id:int}")]
     [ProducesResponseType(StatusCodes.Status204NoContent)]
@@ -545,7 +417,7 @@ builder.Services.AddMediatR(cfg =>
 });
 ```
 
-### Example request + handler (`Result<T>`)
+### Example: `Result<T>` handler
 
 ```csharp
 public sealed record CreateOrderCommand(string CustomerEmail, int Quantity) : IRequest<Result<OrderDto>>;
@@ -563,17 +435,17 @@ public sealed class CreateOrderCommandValidator : AbstractValidator<CreateOrderC
     }
 }
 
-public sealed class CreateOrderHandler : IRequestHandler<CreateOrderCommand, Result<OrderDto>>
+public sealed class CreateOrderHandler(OrderService svc)
+    : IRequestHandler<CreateOrderCommand, Result<OrderDto>>
 {
-    public Task<Result<OrderDto>> Handle(CreateOrderCommand request, CancellationToken ct)
+    public async Task<Result<OrderDto>> Handle(CreateOrderCommand request, CancellationToken ct)
     {
-        var dto = new OrderDto(123, request.CustomerEmail, request.Quantity);
-        return Task.FromResult(Result<OrderDto>.Created($"/api/orders/{dto.Id}", dto));
+        return await svc.CreateAsync(request, ct);
     }
 }
 ```
 
-### Example request + handler (`Result`)
+### Example: void `Result` handler
 
 ```csharp
 public sealed record CancelOrderCommand(int OrderId) : IRequest<Result>;
@@ -586,10 +458,13 @@ public sealed class CancelOrderCommandValidator : AbstractValidator<CancelOrderC
     }
 }
 
-public sealed class CancelOrderHandler : IRequestHandler<CancelOrderCommand, Result>
+public sealed class CancelOrderHandler(OrderService svc)
+    : IRequestHandler<CancelOrderCommand, Result>
 {
-    public Task<Result> Handle(CancelOrderCommand request, CancellationToken ct) =>
-        Task.FromResult(Result.NoContent());
+    public async Task<Result> Handle(CancelOrderCommand request, CancellationToken ct)
+    {
+        return await svc.CancelAsync(request.OrderId, ct);
+    }
 }
 ```
 
@@ -664,54 +539,32 @@ Performance was a first-class concern from the start, not an afterthought.
 
 ### Structs on the hot path
 
-`Result<T>`, `Result`, and `Error` are all `readonly struct` types. Using `readonly struct` avoids per-result object
-allocations in the common path and reduces garbage collector pressure on the success path.
+`Result<T>`, `Result`, and `Error` are all `readonly struct` types. This avoids per-result heap allocations and
+reduces garbage collector pressure on the success path.
 
 ### IExceptionHandler vs. custom middleware
 
-ResultCrafter uses .NET's `IExceptionHandler` interface rather than a hand-written try/catch middleware. In my
-benchmarks, this was significantly faster (roughly 3x) than a custom middleware implementation. The reason is
-straightforward: a custom try/catch middleware wraps **every single request** in a try/catch block, which adds overhead
-on the happy path even when no exception occurs. `IExceptionHandler` is invoked only after the framework's own
-`ExceptionHandlerMiddleware` has already caught an exception. On the 99% of requests that succeed, the exception
-handling code is never entered at all.
+ResultCrafter uses .NET's `IExceptionHandler` interface rather than a hand-written try/catch middleware. In
+benchmarks, this was roughly 3x faster than a custom middleware implementation. A custom try/catch middleware wraps
+every request in a try/catch block, adding overhead on the happy path. `IExceptionHandler` is invoked only after the
+framework's own `ExceptionHandlerMiddleware` has caught an exception. On the 99% of requests that succeed, the
+exception handling code is never entered.
 
 ### Source-generated logging
 
-All log methods use `[LoggerMessage]` source generation. This means log message templates are compiled at build time
-rather than parsed at runtime, and the `logger.IsEnabled(level)` check happens before any string or object allocations
-for log parameters. On the 4xx logging path, there is an explicit `IsEnabled` guard so that if your log level is set to
-filter out warnings, you pay zero allocation cost for those log calls.
+All log methods use `[LoggerMessage]` source generation. Log message templates are compiled at build time rather than
+parsed at runtime. On the 4xx logging path, there is an explicit `IsEnabled` guard so that if your log level filters
+out warnings, you pay zero allocation cost for those log calls.
 
 ### Per-request caching in ProblemDetails enrichment
 
 The `instance` URI and W3C `traceId` are computed once per request and cached in `HttpContext.Items` using typed object
-keys (reference-equality lookup, faster than string-key dictionaries). Repeated calls within the same request pipeline
-hit the cache.
-
-### Exception path is intentionally expensive
-
-The 500 exception handler path does allocate and does do work. That is correct. You are paying the exception overhead
-only when something genuinely unexpected happened, which should be rare. The 4xx Result path, which is frequent, is the
-path that is optimized.
+keys (reference-equality lookup, faster than string-key dictionaries).
 
 ### No reflection, no expression trees
 
 There is no dynamic dispatch, no `Expression` compilation, and no reflection anywhere in the hot path. The mapping from
-`ErrorType` to HTTP status code is a simple `switch` expression evaluated at runtime with no indirection.
-
----
-
-## Testing
-
-ResultCrafter ships with a comprehensive test suite covering the core primitives, the ASP.NET Core pipeline integration,
-the controller extensions, the FluentValidation bridge, and the MediatR behaviors. The test project is structured into
-focused directories like `Core`, `AspNetCore`, `AspNetCore/Controllers`, `FluentValidation`, and `MediatR`, each
-targeting the specific contracts of that layer.
-
-Tests were written with the goal of catching real regressions, not just hitting coverage numbers. Every public contract
-has tests. Every known edge case has a test. Every DI registration guard has a test. If you are contributing, the
-expectation is that new behavior ships with new tests.
+`ErrorType` to HTTP status code is a simple `switch` expression with no indirection.
 
 ---
 
@@ -720,11 +573,85 @@ expectation is that new behavior ships with new tests.
 ### .NET 8 and above only
 
 ResultCrafter requires .NET 8 or later. All packages multi-target `net8.0`, `net9.0`, and `net10.0`,
-so the correct build is selected automatically — no conditional references or compatibility shims are needed.
+so the correct build is selected automatically.
 
 The .NET 8 minimum is deliberate. It is the lowest version that ships `IExceptionHandler`,
 `IProblemDetailsService`, and the ProblemDetails middleware pipeline that ResultCrafter builds on.
 Supporting .NET 6 or 7 would require wrapping or reimplementing those primitives, which is out of scope.
+
+---
+
+## Alternatives
+
+An honest comparison. All of these are good libraries; they solve different problems and prioritize different
+trade-offs. This table is evaluated from the perspective of a Minimal API-first ASP.NET Core project.
+
+> **Last reviewed: April 2026.** Library features and capabilities change over time. If you notice
+> something outdated, please open an issue.
+
+### At a glance
+
+| Feature | ResultCrafter | Ardalis.Result | ErrorOr | FluentResults | OneOf | LanguageExt |
+|---|:---:|:---:|:---:|:---:|:---:|:---:|
+| **Result type** | readonly struct | class | readonly record struct | class | readonly struct | struct (`Fin<A>`) |
+| **Zero-alloc success path** | Yes | No | Yes | No | Yes | Yes |
+| **RFC 9457 ProblemDetails** | Yes | Under discussion | No | No | No | No |
+| **IExceptionHandler pipeline** | Yes | No | No | No | No | No |
+| **Structured logging ([LoggerMessage])** | Yes | No | No | No | No | No |
+| **Minimal API extensions** | Yes (first-class) | Yes (added later) | No | No | No | No |
+| **MVC controller extensions** | Yes | Yes (primary path) | No | No | No | No |
+| **FluentValidation bridge** | Yes (separate pkg) | Yes (separate pkg) | No | No | No | No |
+| **MediatR pipeline behaviors** | Yes (separate pkg) | No | No | No | No | No |
+| **Map / functional helpers** | Map | Map, Bind, Railway | MatchFirst, Then, FailIf, Switch | Map, Bind, Merge, CheckIf | Match | Full FP (monads, optics, etc.) |
+| **EF Core concurrency handler** | Yes (separate pkg) | No | No | No | No | No |
+| **Min .NET version** | .NET 8 | .NET 6+ | .NET 7+ | .NET 6+ | .NET Standard 2.0 | .NET Standard 2.0 |
+| **Multi-target (8/9/10)** | Yes | No | No | Yes (8/9) | No | No |
+| **API surface** | Minimal | Medium | Small | Rich | Small | Very large |
+| **Setup to first ProblemDetails** | 2 lines | Manual wiring | Manual wiring | Manual wiring | Manual wiring | Manual wiring |
+
+### Short takes
+
+**Ardalis.Result**: Battle-tested with ~8M NuGet downloads. The ASP.NET Core package exists but is MVC-first;
+`ToMinimalApiResult()` was added later. ProblemDetails support has been discussed but is not shipped as a built-in
+feature. Good choice if you need broad .NET version support or are already in an MVC codebase.
+
+**ErrorOr**: Clean, small API with ~8M downloads. The `readonly record struct` design avoids heap allocations.
+No first-party ASP.NET Core integration; you map errors to HTTP responses yourself. Good choice if you want a
+lightweight discriminated error type without framework coupling.
+
+**FluentResults**: The most downloaded pure Result library (~27M). Rich feature set with `Reasons`, metadata,
+and extensive chaining. No web integration; logging is manual via an adapter. Good choice if you need flexible
+error metadata and don't mind wiring the HTTP layer yourself.
+
+**OneOf**: A general-purpose discriminated union (~56M downloads), not a Result library. No error/success
+semantics, no HTTP mapping. Good choice if you need compile-time exhaustive matching on arbitrary type sets.
+
+**LanguageExt**: A complete functional programming framework (~44M downloads). `Fin<A>` is the Result
+equivalent, but adopting it means your team thinks in monads. No web integration. Good choice if you want
+full FP in C#; overkill if you just want to stop throwing `NotFoundException`.
+
+---
+
+## Why ResultCrafter
+
+After evaluating the alternatives above, none of them felt built for the way .NET APIs are written today: Minimal APIs,
+`IExceptionHandler`, and `IProblemDetailsService`. Some were too heavy. Some had no ASP.NET Core pipeline integration.
+ResultCrafter fills that gap.
+
+This library has no commercial backing. I work on it in my own time because I think the .NET community deserves a
+well-maintained, zero-bloat Result library that just works. I intend to keep it maintained for as long as I write
+.NET code.
+
+---
+
+## Testing
+
+ResultCrafter ships with a comprehensive test suite covering the core primitives, the ASP.NET Core pipeline integration,
+the controller extensions, the FluentValidation bridge, and the MediatR behaviors. The test project is structured into
+focused directories (`Core`, `AspNetCore`, `FluentValidation`, `MediatR`), each targeting the specific contracts of that
+layer.
+
+If you are contributing, the expectation is that new behavior ships with new tests.
 
 ---
 
@@ -739,8 +666,5 @@ If there is something you want next, open an issue. Community feedback is what d
 
 Issues and pull requests are welcome. Please open an issue before starting significant work so we can discuss the
 approach.
-
-This project has no commercial backing and no roadmap driven by business requirements. Changes are driven by what makes
-the library more useful, more correct, and more aligned with modern .NET practices.
 
 If ResultCrafter has helped you, a GitHub star goes a long way.

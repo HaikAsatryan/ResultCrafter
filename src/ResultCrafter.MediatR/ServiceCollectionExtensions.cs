@@ -2,6 +2,9 @@
 
 namespace ResultCrafter.MediatR;
 
+/// <summary>
+///    Extension methods for registering ResultCrafter validation behaviors with MediatR.
+/// </summary>
 public static class ServiceCollectionExtensions
 {
    /// <summary>

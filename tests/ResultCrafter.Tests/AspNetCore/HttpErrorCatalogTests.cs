@@ -60,4 +60,38 @@ public sealed class HttpErrorCatalogTests
       Assert.Equal("the_request_was_invalid_or_cannot_be_otherwise_served",
          HttpErrorCatalog.ResolveDetail(error));
    }
+
+   // ── Type URIs ─────────────────────────────────────────────────────────────
+
+   [Theory]
+   [InlineData(ErrorType.BadRequest, "https://tools.ietf.org/html/rfc9110#section-15.5.1")]
+   [InlineData(ErrorType.Unauthorized, "https://tools.ietf.org/html/rfc9110#section-15.5.2")]
+   [InlineData(ErrorType.Forbidden, "https://tools.ietf.org/html/rfc9110#section-15.5.4")]
+   [InlineData(ErrorType.NotFound, "https://tools.ietf.org/html/rfc9110#section-15.5.5")]
+   [InlineData(ErrorType.Conflict, "https://tools.ietf.org/html/rfc9110#section-15.5.10")]
+   [InlineData(ErrorType.ConcurrencyConflict, "https://tools.ietf.org/html/rfc9110#section-15.5.10")]
+   public void TypeUri_ReturnsCorrectRfc9110Uri(ErrorType type, string expectedUri)
+   {
+      Assert.Equal(expectedUri, HttpErrorCatalog.TypeUri(type));
+   }
+
+   // ── ErrorType.None throws ─────────────────────────────────────────────────
+
+   [Fact]
+   public void Status_None_ThrowsArgumentOutOfRange()
+   {
+      Assert.Throws<ArgumentOutOfRangeException>(() => HttpErrorCatalog.Status(ErrorType.None));
+   }
+
+   [Fact]
+   public void Title_None_ThrowsArgumentOutOfRange()
+   {
+      Assert.Throws<ArgumentOutOfRangeException>(() => HttpErrorCatalog.Title(ErrorType.None));
+   }
+
+   [Fact]
+   public void TypeUri_None_ThrowsArgumentOutOfRange()
+   {
+      Assert.Throws<ArgumentOutOfRangeException>(() => HttpErrorCatalog.TypeUri(ErrorType.None));
+   }
 }

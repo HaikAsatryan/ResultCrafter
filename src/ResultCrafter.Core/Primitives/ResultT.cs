@@ -87,6 +87,16 @@ public readonly struct Result<T> : IEquatable<Result<T>>
    }
 
    /// <summary>
+   ///    Creates a success result with an explicit <see cref="SuccessKind" /> and
+   ///    <paramref name="location" />. Used internally by <see cref="Map{TOut}" />
+   ///    to preserve the original success variant across type transformations.
+   /// </summary>
+   internal static Result<T> Success(T? value, SuccessKind kind, string? location)
+   {
+      return new Result<T>(value, null, kind, location);
+   }
+
+   /// <summary>
    ///    Implicitly wraps <paramref name="value" /> as an <see cref="Ok" /> result.
    ///    Enables <c>return item;</c> in methods returning <c>Result&lt;T&gt;</c>.
    /// </summary>
@@ -102,6 +112,22 @@ public readonly struct Result<T> : IEquatable<Result<T>>
    public static implicit operator Result<T>(Error error)
    {
       return Fail(error);
+   }
+
+   /// <summary>
+   ///    Transforms the success value using <paramref name="selector" />, preserving
+   ///    <see cref="Kind" /> and <see cref="Location" />. On the failure path, the
+   ///    error is propagated unchanged without invoking <paramref name="selector" />.
+   /// </summary>
+   /// <typeparam name="TOut">The type returned by the transform function.</typeparam>
+   /// <param name="selector">A function that maps <typeparamref name="T" /> to <typeparamref name="TOut" />.</param>
+   public Result<TOut> Map<TOut>(Func<T, TOut> selector)
+   {
+      ArgumentNullException.ThrowIfNull(selector);
+
+      return IsSuccess
+         ? Result<TOut>.Success(selector(Value!), Kind, Location)
+         : Result<TOut>.Fail(Error!.Value);
    }
 
    /// <inheritdoc />
