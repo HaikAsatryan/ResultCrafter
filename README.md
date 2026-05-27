@@ -5,7 +5,7 @@
 A minimal, opinionated Result pattern library for **modern .NET (8+)**, with built-in **RFC 9457 ProblemDetails**,
 structured logging, and first-class Minimal API support, plus full MVC controller support.
 
-ResultCrafter ships as five focused NuGet packages under the `ResultCrafter.*` prefix and **multi-targets**
+ResultCrafter ships as six focused NuGet packages under the `ResultCrafter.*` prefix and **multi-targets**
 `net8.0`, `net9.0`, and `net10.0`.
 
 ---
@@ -19,26 +19,28 @@ ResultCrafter ships as five focused NuGet packages under the `ResultCrafter.*` p
 5. [Map: Transforming Results](#map-transforming-results)
 6. [MVC Controller Support](#mvc-controller-support)
 7. [FluentValidation Integration](#fluentvalidation-integration)
-8. [MediatR + FluentValidation Pipeline](#mediatr--fluentvalidation-pipeline)
-9. [EF Core Integration](#ef-core-integration)
-10. [Configuration](#configuration)
-11. [Performance](#performance)
-12. [Limitations](#limitations)
-13. [Alternatives](#alternatives)
-14. [Why ResultCrafter](#why-resultcrafter)
-15. [Roadmap](#roadmap)
+8. [Endpoint Filter Validation (Minimal API)](#endpoint-filter-validation-minimal-api)
+9. [MediatR + FluentValidation Pipeline](#mediatr--fluentvalidation-pipeline)
+10. [EF Core Integration](#ef-core-integration)
+11. [Configuration](#configuration)
+12. [Performance](#performance)
+13. [Limitations](#limitations)
+14. [Alternatives](#alternatives)
+15. [Why ResultCrafter](#why-resultcrafter)
+16. [Roadmap](#roadmap)
 
 ---
 
 ## Packages
 
-| Package                           | Purpose                                                                                                                                                        |
-|-----------------------------------|----------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| `ResultCrafter.Core`              | The `Result<T>`, `Result`, `Error`, and `ErrorType` primitives. No framework dependencies.                                                                     |
-| `ResultCrafter.AspNetCore`        | RFC 9457 ProblemDetails pipeline, `IExceptionHandler`, structured logging, Minimal API extensions, and MVC controller extensions.                              |
-| `ResultCrafter.AspNetCore.EfCore` | Intercepts `DbUpdateConcurrencyException` and maps it to a 409 ProblemDetails response automatically.                                                          |
-| `ResultCrafter.FluentValidation`  | Bridges `IValidator<T>` to `Error.BadRequest` with field-level error dictionaries.                                                                             |
-| `ResultCrafter.MediatR`           | MediatR pipeline behaviors that run FluentValidation automatically for handlers returning `Result` / `Result<T>`, short-circuiting with structured 400 errors. |
+| Package                                     | Purpose                                                                                                                                                        |
+|---------------------------------------------|----------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| `ResultCrafter.Core`                        | The `Result<T>`, `Result`, `Error`, and `ErrorType` primitives. No framework dependencies.                                                                     |
+| `ResultCrafter.AspNetCore`                  | RFC 9457 ProblemDetails pipeline, `IExceptionHandler`, structured logging, Minimal API extensions, and MVC controller extensions.                              |
+| `ResultCrafter.AspNetCore.EfCore`           | Intercepts `DbUpdateConcurrencyException` and maps it to a 409 ProblemDetails response automatically.                                                          |
+| `ResultCrafter.AspNetCore.FluentValidation` | `WithValidation<T>()` endpoint filter that validates Minimal API requests with their `IValidator<T>` and short-circuits with a 400 ProblemDetails.             |
+| `ResultCrafter.FluentValidation`            | Bridges `IValidator<T>` to `Error.BadRequest` with field-level error dictionaries.                                                                             |
+| `ResultCrafter.MediatR`                     | MediatR pipeline behaviors that run FluentValidation automatically for handlers returning `Result` / `Result<T>`, short-circuiting with structured 400 errors. |
 
 All packages multi-target: **`net8.0`, `net9.0`, `net10.0`**.
 
@@ -51,9 +53,10 @@ Install the packages you need via the .NET CLI:
 ```bash
 dotnet add package ResultCrafter.Core
 dotnet add package ResultCrafter.AspNetCore
-dotnet add package ResultCrafter.AspNetCore.EfCore   # optional, EF Core users
-dotnet add package ResultCrafter.FluentValidation    # optional, FluentValidation users
-dotnet add package ResultCrafter.MediatR             # optional, MediatR validation pipeline behaviors
+dotnet add package ResultCrafter.AspNetCore.EfCore            # optional, EF Core users
+dotnet add package ResultCrafter.FluentValidation             # optional, FluentValidation users
+dotnet add package ResultCrafter.AspNetCore.FluentValidation  # optional, WithValidation<T>() endpoint filter
+dotnet add package ResultCrafter.MediatR                      # optional, MediatR validation pipeline behaviors
 ```
 
 ---
@@ -229,6 +232,17 @@ The 500 response (sanitised in production):
 }
 ```
 
+### Binding failures map to their real status, not 500
+
+When Minimal API model binding fails (for example a required route/query/`[AsParameters]` value is missing or
+unparseable), ASP.NET Core throws `BadHttpRequestException` in the Development environment, where
+`RouteHandlerOptions.ThrowOnBadRequest` is enabled. ResultCrafter maps that exception to its carried status code,
+typically `400` (or e.g. `413` for an oversized body), instead of letting it fall through to the generic 500 handler.
+In Production, where binding failures produce a clean 4xx without throwing, that same status flows through the
+identical ProblemDetails pipeline via `UseStatusCodePages`. So the response is the same across environments: for
+catalog-mapped statuses such as `400` you get the normalized house-style body (`title: "bad_request"`), not the
+framework default. No configuration is required; this is part of `AddResultCrafter()`.
+
 ---
 
 ## Map: Transforming Results
@@ -386,8 +400,60 @@ public async Task<Result<OrderDto>> CreateAsync(CreateOrderRequest req, Cancella
 ```
 
 `ValidateToResultAsync` returns `null` on success and an `Error.BadRequest` with the full field errors dictionary on
-failure. Property names are used as-is from FluentValidation. If you want a specific casing convention (for example,
-camelCase), configure `ValidatorOptions.Global.PropertyNameResolver` globally in your composition root.
+failure. Property names are used as-is from FluentValidation. If you call it directly and want a specific casing
+convention, configure `ValidatorOptions.Global.PropertyNameResolver` in your composition root. When you use the
+[endpoint filter](#endpoint-filter-validation-minimal-api) below, key casing is aligned to your JSON settings for you.
+
+---
+
+## Endpoint Filter Validation (Minimal API)
+
+The `ResultCrafter.AspNetCore.FluentValidation` package turns the bridge above into a one-liner for Minimal API
+endpoints. `WithValidation<T>()` adds an endpoint filter that resolves the registered `IValidator<T>`, validates the
+`T` argument before your handler runs, and short-circuits with a 400 ProblemDetails on failure.
+
+```csharp
+using ResultCrafter.AspNetCore.FluentValidation;
+
+// Register your validators once. AddResultCrafterValidation() scans the calling assembly and
+// registers them as Scoped by default (matching FluentValidation); pass a lifetime and/or assemblies to override.
+// (plain FluentValidation registration such as AddValidatorsFromAssembly(...) works too.)
+builder.Services.AddResultCrafterValidation();
+
+// Per endpoint (WithValidation<T>() also documents the 400 response in OpenAPI):
+app.MapPost("/orders", async (CreateOrderRequest req, OrderService svc, CancellationToken ct) =>
+        (await svc.CreateAsync(req, ct)).ToCreatedResult())
+    .WithValidation<CreateOrderRequest>();
+
+// Or for every endpoint in a group:
+var orders = app.MapGroup("/orders").WithValidation<CreateOrderRequest>();
+orders.MapPost("/", async (CreateOrderRequest req, OrderService svc, CancellationToken ct) =>
+    (await svc.CreateAsync(req, ct)).ToCreatedResult());
+```
+
+The failure response is the same RFC 9457 ProblemDetails shape as everywhere else, with the field-error keys aligned to
+your app's configured JSON property-naming policy (camelCase by default for Minimal APIs) so they match the property
+names on the wire, including nested (`address.street`) and indexed (`items[0].name`) paths:
+
+```json
+{
+    "type": "https://tools.ietf.org/html/rfc9110#section-15.5.1",
+    "status": 400,
+    "title": "bad_request",
+    "detail": "the_request_was_invalid_or_cannot_be_otherwise_served",
+    "instance": "/orders",
+    "errors": {
+        "customerEmail": ["Email is required."],
+        "quantity": ["Quantity must be greater than 0."]
+    },
+    "traceId": "00-abc123def456abc123def456abc123de-abc123def456abc1-00",
+    "requestId": "0HN8K2MJ7F4QP:00000004"
+}
+```
+
+The filter is a transparent pass-through when the endpoint has no matching `T` argument, so it is safe to apply to a
+whole group. If a `T` argument is present but no `IValidator<T>` is registered, it throws so the misconfiguration
+surfaces immediately instead of silently skipping validation.
 
 ---
 
@@ -591,23 +657,23 @@ trade-offs. This table is evaluated from the perspective of a Minimal API-first 
 
 ### At a glance
 
-| Feature | ResultCrafter | Ardalis.Result | ErrorOr | FluentResults | OneOf | LanguageExt |
-|---|:---:|:---:|:---:|:---:|:---:|:---:|
-| **Result type** | readonly struct | class | readonly record struct | class | readonly struct | struct (`Fin<A>`) |
-| **Zero-alloc success path** | Yes | No | Yes | No | Yes | Yes |
-| **RFC 9457 ProblemDetails** | Yes | Under discussion | No | No | No | No |
-| **IExceptionHandler pipeline** | Yes | No | No | No | No | No |
-| **Structured logging ([LoggerMessage])** | Yes | No | No | No | No | No |
-| **Minimal API extensions** | Yes (first-class) | Yes (added later) | No | No | No | No |
-| **MVC controller extensions** | Yes | Yes (primary path) | No | No | No | No |
-| **FluentValidation bridge** | Yes (separate pkg) | Yes (separate pkg) | No | No | No | No |
-| **MediatR pipeline behaviors** | Yes (separate pkg) | No | No | No | No | No |
-| **Map / functional helpers** | Map | Map, Bind, Railway | MatchFirst, Then, FailIf, Switch | Map, Bind, Merge, CheckIf | Match | Full FP (monads, optics, etc.) |
-| **EF Core concurrency handler** | Yes (separate pkg) | No | No | No | No | No |
-| **Min .NET version** | .NET 8 | .NET 6+ | .NET 7+ | .NET 6+ | .NET Standard 2.0 | .NET Standard 2.0 |
-| **Multi-target (8/9/10)** | Yes | No | No | Yes (8/9) | No | No |
-| **API surface** | Minimal | Medium | Small | Rich | Small | Very large |
-| **Setup to first ProblemDetails** | 2 lines | Manual wiring | Manual wiring | Manual wiring | Manual wiring | Manual wiring |
+| Feature                                  |   ResultCrafter    |   Ardalis.Result   |             ErrorOr              |       FluentResults       |       OneOf       |          LanguageExt           |
+|------------------------------------------|:------------------:|:------------------:|:--------------------------------:|:-------------------------:|:-----------------:|:------------------------------:|
+| **Result type**                          |  readonly struct   |       class        |      readonly record struct      |           class           |  readonly struct  |       struct (`Fin<A>`)        |
+| **Zero-alloc success path**              |        Yes         |         No         |               Yes                |            No             |        Yes        |              Yes               |
+| **RFC 9457 ProblemDetails**              |        Yes         |  Under discussion  |                No                |            No             |        No         |               No               |
+| **IExceptionHandler pipeline**           |        Yes         |         No         |                No                |            No             |        No         |               No               |
+| **Structured logging ([LoggerMessage])** |        Yes         |         No         |                No                |            No             |        No         |               No               |
+| **Minimal API extensions**               | Yes (first-class)  | Yes (added later)  |                No                |            No             |        No         |               No               |
+| **MVC controller extensions**            |        Yes         | Yes (primary path) |                No                |            No             |        No         |               No               |
+| **FluentValidation bridge**              | Yes (separate pkg) | Yes (separate pkg) |                No                |            No             |        No         |               No               |
+| **MediatR pipeline behaviors**           | Yes (separate pkg) |         No         |                No                |            No             |        No         |               No               |
+| **Map / functional helpers**             |        Map         | Map, Bind, Railway | MatchFirst, Then, FailIf, Switch | Map, Bind, Merge, CheckIf |       Match       | Full FP (monads, optics, etc.) |
+| **EF Core concurrency handler**          | Yes (separate pkg) |         No         |                No                |            No             |        No         |               No               |
+| **Min .NET version**                     |       .NET 8       |      .NET 6+       |             .NET 7+              |          .NET 6+          | .NET Standard 2.0 |       .NET Standard 2.0        |
+| **Multi-target (8/9/10)**                |        Yes         |         No         |                No                |         Yes (8/9)         |        No         |               No               |
+| **API surface**                          |      Minimal       |       Medium       |              Small               |           Rich            |       Small       |           Very large           |
+| **Setup to first ProblemDetails**        |      2 lines       |   Manual wiring    |          Manual wiring           |       Manual wiring       |   Manual wiring   |         Manual wiring          |
 
 ### Short takes
 

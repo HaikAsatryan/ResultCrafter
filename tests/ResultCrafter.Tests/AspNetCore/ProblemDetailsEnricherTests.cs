@@ -6,146 +6,146 @@ namespace ResultCrafter.Tests.AspNetCore;
 
 public sealed class ProblemDetailsEnricherTests
 {
-   // ── GetInstance ────────────────────────────────────────────────────────────
+    // ── GetInstance ────────────────────────────────────────────────────────────
 
-   [Fact]
-   public void GetInstance_ReturnsPathOnly()
-   {
-      var ctx = BuildHttpContext("api.example.com", "/api/orders/42");
+    [Fact]
+    public void GetInstance_ReturnsPathOnly()
+    {
+        var ctx = BuildHttpContext("api.example.com", "/api/orders/42");
 
-      var instance = ProblemDetailsEnricher.GetInstance(ctx);
+        var instance = ProblemDetailsEnricher.GetInstance(ctx);
 
-      Assert.Equal("/api/orders/42", instance);
-   }
+        Assert.Equal("/api/orders/42", instance);
+    }
 
-   [Fact]
-   public void GetInstance_DoesNotIncludeHttpMethod()
-   {
-      var ctx = BuildHttpContext("api.example.com", "/api/orders", "POST");
+    [Fact]
+    public void GetInstance_DoesNotIncludeHttpMethod()
+    {
+        var ctx = BuildHttpContext("api.example.com", "/api/orders", "POST");
 
-      var instance = ProblemDetailsEnricher.GetInstance(ctx);
+        var instance = ProblemDetailsEnricher.GetInstance(ctx);
 
-      Assert.DoesNotContain("POST", instance);
-   }
+        Assert.DoesNotContain("POST", instance);
+    }
 
-   [Fact]
-   public void GetInstance_CalledTwice_ReturnsSameReference()
-   {
-      // Verifies the result is cached in HttpContext.Items
-      var ctx = BuildHttpContext("api.example.com", "/api/orders/1");
+    [Fact]
+    public void GetInstance_CalledTwice_ReturnsSameReference()
+    {
+        // Verifies the result is cached in HttpContext.Items
+        var ctx = BuildHttpContext("api.example.com", "/api/orders/1");
 
-      var first = ProblemDetailsEnricher.GetInstance(ctx);
-      var second = ProblemDetailsEnricher.GetInstance(ctx);
+        var first = ProblemDetailsEnricher.GetInstance(ctx);
+        var second = ProblemDetailsEnricher.GetInstance(ctx);
 
-      Assert.Same(first, second);
-   }
+        Assert.Same(first, second);
+    }
 
-   // ── GetTraceId ─────────────────────────────────────────────────────────────
+    // ── GetTraceId ─────────────────────────────────────────────────────────────
 
-   [Fact]
-   public void GetTraceId_WhenNoActivity_ReturnsEmptyString()
-   {
-      var ctx = BuildHttpContext("api.example.com", "/api/orders");
+    [Fact]
+    public void GetTraceId_WhenNoActivity_ReturnsEmptyString()
+    {
+        var ctx = BuildHttpContext("api.example.com", "/api/orders");
 
-      var traceId = ProblemDetailsEnricher.GetTraceId(ctx);
+        var traceId = ProblemDetailsEnricher.GetTraceId(ctx);
 
-      Assert.Equal(string.Empty, traceId);
-   }
+        Assert.Equal(string.Empty, traceId);
+    }
 
-   [Fact]
-   public void GetTraceId_CalledTwice_ReturnsSameReference()
-   {
-      var ctx = BuildHttpContext("api.example.com", "/api/orders");
+    [Fact]
+    public void GetTraceId_CalledTwice_ReturnsSameReference()
+    {
+        var ctx = BuildHttpContext("api.example.com", "/api/orders");
 
-      var first = ProblemDetailsEnricher.GetTraceId(ctx);
-      var second = ProblemDetailsEnricher.GetTraceId(ctx);
+        var first = ProblemDetailsEnricher.GetTraceId(ctx);
+        var second = ProblemDetailsEnricher.GetTraceId(ctx);
 
-      Assert.Same(first, second);
-   }
+        Assert.Same(first, second);
+    }
 
-   // ── Enrich ─────────────────────────────────────────────────────────────────
+    // ── Enrich ─────────────────────────────────────────────────────────────────
 
-   [Fact]
-   public void Enrich_SetsInstanceOnProblemDetails()
-   {
-      var ctx = BuildHttpContext("api.example.com", "/api/orders/1");
-      var pd = new ProblemDetails();
+    [Fact]
+    public void Enrich_SetsInstanceOnProblemDetails()
+    {
+        var ctx = BuildHttpContext("api.example.com", "/api/orders/1");
+        var pd = new ProblemDetails();
 
-      ProblemDetailsEnricher.Enrich(pd, ctx);
+        ProblemDetailsEnricher.Enrich(pd, ctx);
 
-      Assert.Equal("/api/orders/1", pd.Instance);
-   }
+        Assert.Equal("/api/orders/1", pd.Instance);
+    }
 
-   [Fact]
-   public void Enrich_DoesNotOverwriteExistingInstance()
-   {
-      var ctx = BuildHttpContext("api.example.com", "/api/orders/1");
-      var pd = new ProblemDetails
-      {
-         Instance = "already-set"
-      };
+    [Fact]
+    public void Enrich_DoesNotOverwriteExistingInstance()
+    {
+        var ctx = BuildHttpContext("api.example.com", "/api/orders/1");
+        var pd = new ProblemDetails
+        {
+            Instance = "already-set"
+        };
 
-      ProblemDetailsEnricher.Enrich(pd, ctx);
+        ProblemDetailsEnricher.Enrich(pd, ctx);
 
-      Assert.Equal("already-set", pd.Instance);
-   }
+        Assert.Equal("already-set", pd.Instance);
+    }
 
-   [Fact]
-   public void Enrich_AddsRequestIdExtension()
-   {
-      var ctx = BuildHttpContext("api.example.com", "/api/orders/1");
-      ctx.TraceIdentifier = "test-request-id";
-      var pd = new ProblemDetails();
+    [Fact]
+    public void Enrich_AddsRequestIdExtension()
+    {
+        var ctx = BuildHttpContext("api.example.com", "/api/orders/1");
+        ctx.TraceIdentifier = "test-request-id";
+        var pd = new ProblemDetails();
 
-      ProblemDetailsEnricher.Enrich(pd, ctx);
+        ProblemDetailsEnricher.Enrich(pd, ctx);
 
-      Assert.True(pd.Extensions.ContainsKey("requestId"));
-      Assert.Equal("test-request-id", pd.Extensions["requestId"]);
-   }
+        Assert.True(pd.Extensions.ContainsKey("requestId"));
+        Assert.Equal("test-request-id", pd.Extensions["requestId"]);
+    }
 
-   [Fact]
-   public void Enrich_AddsTraceIdExtension()
-   {
-      var ctx = BuildHttpContext("api.example.com", "/api/orders/1");
-      var pd = new ProblemDetails();
+    [Fact]
+    public void Enrich_AddsTraceIdExtension()
+    {
+        var ctx = BuildHttpContext("api.example.com", "/api/orders/1");
+        var pd = new ProblemDetails();
 
-      ProblemDetailsEnricher.Enrich(pd, ctx);
+        ProblemDetailsEnricher.Enrich(pd, ctx);
 
-      Assert.True(pd.Extensions.ContainsKey("traceId"));
-   }
+        Assert.True(pd.Extensions.ContainsKey("traceId"));
+    }
 
-   [Fact]
-   public void Enrich_DoesNotOverwriteExistingRequestId()
-   {
-      var ctx = BuildHttpContext("api.example.com", "/api/orders/1");
-      var pd = new ProblemDetails
-      {
-         Extensions =
-         {
-            ["requestId"] = "original-id"
-         }
-      };
+    [Fact]
+    public void Enrich_DoesNotOverwriteExistingRequestId()
+    {
+        var ctx = BuildHttpContext("api.example.com", "/api/orders/1");
+        var pd = new ProblemDetails
+        {
+            Extensions =
+            {
+                ["requestId"] = "original-id"
+            }
+        };
 
-      ProblemDetailsEnricher.Enrich(pd, ctx);
+        ProblemDetailsEnricher.Enrich(pd, ctx);
 
-      Assert.Equal("original-id", pd.Extensions["requestId"]);
-   }
+        Assert.Equal("original-id", pd.Extensions["requestId"]);
+    }
 
-   // ── Helpers ────────────────────────────────────────────────────────────────
+    // ── Helpers ────────────────────────────────────────────────────────────────
 
-   private static DefaultHttpContext BuildHttpContext(string host,
-      string path,
-      string method = "GET")
-   {
-      var ctx = new DefaultHttpContext
-      {
-         Request =
-         {
-            Host = new HostString(host),
-            Path = new PathString(path),
-            Method = method
-         }
-      };
-      return ctx;
-   }
+    private static DefaultHttpContext BuildHttpContext(string host,
+        string path,
+        string method = "GET")
+    {
+        var ctx = new DefaultHttpContext
+        {
+            Request =
+            {
+                Host = new HostString(host),
+                Path = new PathString(path),
+                Method = method
+            }
+        };
+        return ctx;
+    }
 }

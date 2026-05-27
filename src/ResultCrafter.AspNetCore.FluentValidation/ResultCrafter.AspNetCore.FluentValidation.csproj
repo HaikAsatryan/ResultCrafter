@@ -1,0 +1,22 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <Description>FluentValidation endpoint-filter integration for ResultCrafter ASP.NET Core. Adds WithValidation&lt;T&gt;() to validate Minimal API requests with their registered IValidator&lt;T&gt; and short-circuit with an RFC 9457 ProblemDetails 400.</Description>
+    <PackageTags>fluentvalidation;validation;aspnetcore;minimal-api;minimal-apis;endpoint-filter;result-pattern;problem-details;problemdetails;rfc9457</PackageTags>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <FrameworkReference Include="Microsoft.AspNetCore.App"/>
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="FluentValidation" Version="12.1.1"/>
+    <PackageReference Include="FluentValidation.DependencyInjectionExtensions" Version="12.1.1"/>
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\ResultCrafter.AspNetCore\ResultCrafter.AspNetCore.csproj"/>
+    <ProjectReference Include="..\ResultCrafter.FluentValidation\ResultCrafter.FluentValidation.csproj"/>
+  </ItemGroup>
+
+</Project>

@@ -1,28 +1,28 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
 
-    <PropertyGroup>
-        <Description>EF Core integration for ResultCrafter ASP.NET Core. Maps DbUpdateConcurrencyException to 409 RFC 9457 ProblemDetails via IExceptionHandler.</Description>
-        <PackageTags>ef-core;aspnetcore;result-pattern;problem-details;problemdetails;concurrency;optimistic-concurrency;dbupdateconcurrencyexception;iexceptionhandler</PackageTags>
-    </PropertyGroup>
+  <PropertyGroup>
+    <Description>EF Core integration for ResultCrafter ASP.NET Core. Maps DbUpdateConcurrencyException to 409 RFC 9457 ProblemDetails via IExceptionHandler.</Description>
+    <PackageTags>ef-core;aspnetcore;result-pattern;problem-details;problemdetails;concurrency;optimistic-concurrency;dbupdateconcurrencyexception;iexceptionhandler</PackageTags>
+  </PropertyGroup>
 
-    <ItemGroup>
-        <FrameworkReference Include="Microsoft.AspNetCore.App"/>
-    </ItemGroup>
+  <ItemGroup>
+    <FrameworkReference Include="Microsoft.AspNetCore.App"/>
+  </ItemGroup>
 
-    <ItemGroup Condition="'$(TargetFramework)' == 'net8.0'">
-        <PackageReference Include="Microsoft.EntityFrameworkCore" Version="8.0.13"/>
-    </ItemGroup>
+  <ItemGroup Condition="'$(TargetFramework)' == 'net8.0'">
+    <PackageReference Include="Microsoft.EntityFrameworkCore" Version="8.0.13"/>
+  </ItemGroup>
 
-    <ItemGroup Condition="'$(TargetFramework)' == 'net9.0'">
-        <PackageReference Include="Microsoft.EntityFrameworkCore" Version="9.0.0"/>
-    </ItemGroup>
+  <ItemGroup Condition="'$(TargetFramework)' == 'net9.0'">
+    <PackageReference Include="Microsoft.EntityFrameworkCore" Version="9.0.0"/>
+  </ItemGroup>
 
-    <ItemGroup Condition="'$(TargetFramework)' == 'net10.0'">
-        <PackageReference Include="Microsoft.EntityFrameworkCore" Version="10.0.0"/>
-    </ItemGroup>
+  <ItemGroup Condition="'$(TargetFramework)' == 'net10.0'">
+    <PackageReference Include="Microsoft.EntityFrameworkCore" Version="10.0.0"/>
+  </ItemGroup>
 
-    <ItemGroup>
-        <ProjectReference Include="..\ResultCrafter.AspNetCore\ResultCrafter.AspNetCore.csproj"/>
-    </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\ResultCrafter.AspNetCore\ResultCrafter.AspNetCore.csproj"/>
+  </ItemGroup>
 
 </Project>
