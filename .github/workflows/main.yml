@@ -43,6 +43,9 @@ jobs:
       - name: Pack ResultCrafter.AspNetCore.EfCore
         run: dotnet pack src/ResultCrafter.AspNetCore.EfCore/ResultCrafter.AspNetCore.EfCore.csproj --no-build --configuration Release --output ${{ env.OUTPUT_DIR }}
 
+      - name: Pack ResultCrafter.AspNetCore.FluentValidation
+        run: dotnet pack src/ResultCrafter.AspNetCore.FluentValidation/ResultCrafter.AspNetCore.FluentValidation.csproj --no-build --configuration Release --output ${{ env.OUTPUT_DIR }}
+
       - name: Pack ResultCrafter.FluentValidation
         run: dotnet pack src/ResultCrafter.FluentValidation/ResultCrafter.FluentValidation.csproj --no-build --configuration Release --output ${{ env.OUTPUT_DIR }}
 

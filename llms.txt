@@ -3,7 +3,7 @@
 > A minimal, opinionated Result pattern library for modern .NET (8+). Provides `Result<T>`, `Result`, and `Error`
 > as `readonly struct` types, with built-in RFC 9457 ProblemDetails pipeline, structured logging via
 > `[LoggerMessage]`, first-class Minimal API support, and full MVC controller support.
-> Ships as five focused NuGet packages under the `ResultCrafter.*` prefix.
+> Ships as six focused NuGet packages under the `ResultCrafter.*` prefix.
 
 ## Key design decisions
 
@@ -30,10 +30,23 @@
   excluded — it breaks behind reverse proxies.
 - `EfCoreConcurrencyExceptionHandler` is inserted *before* `ResultCrafterExceptionHandler` in the DI list so
   `DbUpdateConcurrencyException` resolves as 409 rather than falling through to 500.
+- `BadHttpRequestExceptionHandler` is registered by `AddResultCrafter()` *before* `ResultCrafterExceptionHandler` and
+  maps a 4xx `BadHttpRequestException` (e.g. Minimal API binding failures, thrown only when
+  `RouteHandlerOptions.ThrowOnBadRequest` is enabled — the Development default) to its carried status code rather than
+  500, via the standard ProblemDetails pipeline, for dev/prod parity.
+- `ConfigureResultCrafterProblemDetails` normalizes framework-default ProblemDetails (the binding handler above in
+  Development, and bare status codes via `UseStatusCodePages` in Production) to the house style using
+  `HttpErrorCatalog.TryGetErrorType`, only when the title is still the framework default — so a binding `400` reads
+  `title: "bad_request"` identically in both environments, with Result-based and app-customized titles left intact.
+- `ValidationFilter<T>` (in `ResultCrafter.AspNetCore.FluentValidation`) aligns the field-error keys to the app's
+  configured JSON `PropertyNamingPolicy` per path segment (camelCase by default) instead of mutating the global
+  `ValidatorOptions.Global.PropertyNameResolver`, so `errors` keys match the wire JSON with no global side effect.
 - `ResultCrafterMarker` + `ResultCrafterStartupValidator` enforce that both `AddResultCrafter()` and
   `UseResultCrafter()` are called; misconfiguration throws at startup, not at the first request.
-- `ResultCrafter.MediatR` provides two open-generic MediatR behaviors (`Result<T>` and void `Result`) because
-  `IPipelineBehavior` requires an exact response-type match; a single behavior cannot cover both without reflection.
+- `ResultCrafter.MediatR` provides one open-generic behavior `ResultValidationBehavior<TRequest, TResponse>` covering
+  both `Result` and `Result<T>` (and passing through other response types). A behavior that fixes `TResponse` to the
+  void `Result` (arity 1) cannot be registered against the arity-2 `IPipelineBehavior<,>`, so the single fully-open
+  behavior builds the failed response via a `ResultResponseFactory<TResponse>` delegate bound once per response type.
 - MediatR validation behaviors execute validators sequentially (not `Task.WhenAll`) for safety with validators that
   depend on non-thread-safe scoped services (e.g. EF Core `DbContext`); failures are aggregated into one field-errors
   dictionary.
@@ -47,6 +60,8 @@
    extensions. Requires .NET 8+. Multi-targets net8.0;net9.0;net10.0.
 - `ResultCrafter.AspNetCore.EfCore` — intercepts `DbUpdateConcurrencyException` -> 409. Call
   `AddResultCrafterEfCore()` after `AddResultCrafter()`.
+- `ResultCrafter.AspNetCore.FluentValidation` — `WithValidation<T>()` Minimal API endpoint filter plus the
+  `AddResultCrafterValidation()` registration helper. Depends on `ResultCrafter.AspNetCore` + `ResultCrafter.FluentValidation`.
 - `ResultCrafter.FluentValidation` — `ValidateToResultAsync` bridge from `IValidator<T>` to `Error.BadRequest`.
 - `ResultCrafter.MediatR` — MediatR pipeline behaviors that run FluentValidation automatically for handlers returning
   `Result` / `Result<T>`, short-circuiting with `Error.BadRequest(fieldErrors)`.
@@ -71,8 +86,9 @@
 ### ASP.NET Core — DI wiring (`src/ResultCrafter.AspNetCore/DependencyInjection/`)
 
 - [ServiceCollectionExtensions.cs](src/ResultCrafter.AspNetCore/DependencyInjection/ServiceCollectionExtensions.cs):
-  `AddResultCrafter()` — registers `AddProblemDetails`, `IPostConfigureOptions`, `IExceptionHandler`,
-  `ResultCrafterMarker`, `ResultCrafterStartupValidator`.
+  `AddResultCrafter()` — registers `AddProblemDetails`, `IPostConfigureOptions`, two `IExceptionHandler`s
+  (`BadHttpRequestExceptionHandler` before the catch-all `ResultCrafterExceptionHandler`), `ResultCrafterMarker`,
+  `ResultCrafterStartupValidator`.
 - [ApplicationBuilderExtensions.cs](src/ResultCrafter.AspNetCore/DependencyInjection/ApplicationBuilderExtensions.cs):
   `UseResultCrafter()` — calls `UseExceptionHandler()` + `UseStatusCodePages()`, marks the sentinel.
 - [ConfigureResultCrafterProblemDetails.cs](src/ResultCrafter.AspNetCore/DependencyInjection/ConfigureResultCrafterProblemDetails.cs):
@@ -130,6 +146,10 @@
 
 ### ASP.NET Core — Exception handling (`src/ResultCrafter.AspNetCore/ExceptionHandling/`)
 
+- [BadHttpRequestExceptionHandler.cs](src/ResultCrafter.AspNetCore/ExceptionHandling/BadHttpRequestExceptionHandler.cs):
+  `IExceptionHandler` — maps a 4xx `BadHttpRequestException` to its carried `StatusCode` through the ProblemDetails
+  pipeline (sets the `x-rc` marker so the centralised 4xx logging + marker stripping fire). Registered before the
+  catch-all; non-4xx or non-`BadHttpRequestException` fall through to `ResultCrafterExceptionHandler`.
 - [ResultCrafterExceptionHandler.cs](src/ResultCrafter.AspNetCore/ExceptionHandling/ResultCrafterExceptionHandler.cs):
   `IExceptionHandler` — catches all unhandled exceptions, logs at Error, writes 500 ProblemDetails. Detail is
   sanitised in production (`ExceptionDetailMode.Auto` checks env name at startup using
@@ -156,25 +176,41 @@
   failure. Property names come from FluentValidation as-is; configure
   `ValidatorOptions.Global.PropertyNameResolver` for casing conventions.
 
+### ASP.NET Core FluentValidation endpoint filter (`src/ResultCrafter.AspNetCore.FluentValidation/`)
+
+- [ValidationFilter.cs](src/ResultCrafter.AspNetCore.FluentValidation/ValidationFilter.cs): `IEndpointFilter` —
+  resolves `IValidator<TRequest>` from request services, runs `ValidateToResultAsync`, and on failure returns
+  `error.ToProblemResult()` after re-keying the field errors with the configured JSON `PropertyNamingPolicy`
+  (applied per path segment). Transparent pass-through when there is no matching `TRequest` argument; throws when a
+  `TRequest` argument is present but no `IValidator<TRequest>` is registered (fail-fast).
+- [ValidationFilterExtensions.cs](src/ResultCrafter.AspNetCore.FluentValidation/ValidationFilterExtensions.cs):
+  `WithValidation<TRequest>()` for both `RouteHandlerBuilder` and `RouteGroupBuilder` — adds `ValidationFilter<TRequest>`
+  and documents the `400` ProblemDetails response in OpenAPI.
+- [ServiceCollectionExtensions.cs](src/ResultCrafter.AspNetCore.FluentValidation/ServiceCollectionExtensions.cs):
+  `AddResultCrafterValidation(lifetime = Scoped, params assemblies)` — opt-in convenience that registers validators
+  via FluentValidation's `AddValidatorsFromAssemblies`, defaulting to the calling assembly (`[MethodImpl(NoInlining)]`).
+
 ### MediatR integration (`src/ResultCrafter.MediatR/`)
 
 - [ResultValidationBehavior.cs](src/ResultCrafter.MediatR/ResultValidationBehavior.cs):
-  `IPipelineBehavior<TRequest, Result<T>>` — runs all registered `IValidator<TRequest>` instances before the handler,
-  aggregates failures, returns `Result<T>.Fail(Error.BadRequest(fieldErrors))` on validation failure.
-  Empty `PropertyName` is normalised to `"_"` using `string.IsNullOrWhiteSpace`.
-- [VoidResultValidationBehavior.cs](src/ResultCrafter.MediatR/VoidResultValidationBehavior.cs):
-  `IPipelineBehavior<TRequest, Result>` — same validation behavior for handlers returning void `Result`.
+  `IPipelineBehavior<TRequest, TResponse>` — a single open behavior covering both `Result` and `Result<T>` responses
+  (and a pass-through for any other response type). Runs all registered `IValidator<TRequest>` instances before the
+  handler, aggregates failures, and returns the failed `Result`/`Result<T>` carrying `Error.BadRequest(fieldErrors)`.
+  The failed-response factory is bound once per response type via `ResultResponseFactory<TResponse>` (no per-request
+  reflection). Empty `PropertyName` is normalised to `"_"` using `string.IsNullOrWhiteSpace`.
 - [ServiceCollectionExtensions.cs](src/ResultCrafter.MediatR/ServiceCollectionExtensions.cs):
-  `AddResultCrafterValidation(this MediatRServiceConfiguration)` — registers both open behaviors with MediatR.
+  `AddResultCrafterValidation(this MediatRServiceConfiguration)` — registers the single open behavior with MediatR.
 
 ### Demo project (`tests/ResultCrafter.Demo/`)
 
 - [Program.cs](tests/ResultCrafter.Demo/Program.cs): Wires `AddResultCrafter`, `AddResultCrafterEfCore`,
-  `AddControllers`, `ItemService` (Singleton), validators as Singleton. Mounts Minimal API group at `/api` and
-  controllers at `/api/ctrl`.
+  `AddControllers`, `ItemService` (Singleton), and `AddResultCrafterValidation(ServiceLifetime.Singleton)` (Singleton
+  because `ItemService` injects the validator; the library default is Scoped). Mounts
+  Minimal API group at `/api` and controllers at `/api/ctrl`.
 - [ItemEndpoints.cs](tests/ResultCrafter.Demo/ItemEndpoints.cs): Minimal API endpoints covering all success kinds
-  (Ok, Created, Accepted typed/void, NoContent) and all error types. Includes `/items/crash`
-  (unhandled exception -> 500) and `/items/db-crash` (`DbUpdateConcurrencyException` -> 409).
+  (Ok, Created, Accepted typed/void, NoContent) and all error types. `POST /items` uses
+  `.WithValidation<CreateItemRequest>()`. Includes `/items/crash` (unhandled exception -> 500) and `/items/db-crash`
+  (`DbUpdateConcurrencyException` -> 409).
 - [ItemsController.cs](tests/ResultCrafter.Demo/ItemsController.cs): MVC controller mirror
   of the Minimal API endpoints under `/api/ctrl/items`. Same `ItemService`, same result methods, attribute-based
   OpenAPI documentation. Includes `Crash()` and `DbCrash()` actions.
@@ -190,8 +226,10 @@ All tests use xUnit v3. Test files mirror the source namespace they cover.
 - `Core/` — `ErrorTests`, `ResultVoidTests`, `ResultOfTTests`: primitives, equality, implicit conversions,
   `ErrorType.None` sentinel, `SuccessKind` on void Result, `Map` method.
 - `AspNetCore/` — `DependencyInjectionTests`, `HttpErrorCatalogTests`, `ProblemDetailsBuilderTests`,
-  `ProblemDetailsEnricherTests`: pipeline wiring, status/title/detail/typeUri mapping, enrichment caching,
-  `ErrorType.None` rejection.
+  `ProblemDetailsEnricherTests`, `BadHttpRequestExceptionHandlerTests`, `ValidationFilterTests`: pipeline wiring,
+  status/title/detail/typeUri mapping, enrichment caching, `ErrorType.None` rejection, the `BadHttpRequestException`
+  4xx mapping, and the `WithValidation<T>()` endpoint filter. The handler/filter tests run against an in-memory
+  `TestServer` (`Microsoft.AspNetCore.TestHost`) via the `TestApp` helper.
 - `AspNetCore/Controllers/` — `ControllerResultExtensionsTests` (~37 tests), `ProblemActionResultTests` (~24
   tests using `CapturingProblemDetailsService` spy), `ControllerResultAttributesTests` (~17 tests verifying
   status codes, types, `AllowMultiple`, and `AttributeTargets.Method`).

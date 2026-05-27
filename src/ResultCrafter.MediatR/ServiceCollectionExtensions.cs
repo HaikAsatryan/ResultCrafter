@@ -3,42 +3,34 @@
 namespace ResultCrafter.MediatR;
 
 /// <summary>
-///    Extension methods for registering ResultCrafter validation behaviors with MediatR.
+///     Extension methods for registering ResultCrafter validation behaviors with MediatR.
 /// </summary>
 public static class ServiceCollectionExtensions
 {
-   /// <summary>
-   ///    Registers the ResultCrafter validation pipeline behaviors into the MediatR pipeline:
-   ///    <list type="bullet">
-   ///       <item>
-   ///          <see cref="ResultValidationBehavior{TRequest,T}" /> — for handlers returning
-   ///          <c>Result&lt;T&gt;</c>.
-   ///       </item>
-   ///       <item>
-   ///          <see cref="VoidResultValidationBehavior{TRequest}" /> — for handlers returning the
-   ///          void <c>Result</c>.
-   ///       </item>
-   ///    </list>
-   ///    Both behaviors are registered as open generics. MediatR resolves the correct one at
-   ///    runtime based on each handler's response type. Handlers with no registered
-   ///    <c>IValidator&lt;TRequest&gt;</c> are a transparent pass-through.
-   /// </summary>
-   /// <example>
-   ///    <code>
-   /// builder.Services.AddMediatR(cfg =>
-   /// {
-   ///     cfg.RegisterServicesFromAssemblyContaining&lt;Program&gt;();
-   ///     cfg.AddResultCrafterValidation();
-   /// });
-   /// 
-   /// // Register your validators (any lifetime; Singleton is fine for stateless validators)
-   /// builder.Services.AddValidatorsFromAssemblyContaining&lt;Program&gt;();
-   /// </code>
-   /// </example>
-   public static MediatRServiceConfiguration AddResultCrafterValidation(this MediatRServiceConfiguration cfg)
-   {
-      cfg.AddOpenBehavior(typeof(ResultValidationBehavior<,>));
-      cfg.AddOpenBehavior(typeof(VoidResultValidationBehavior<>));
-      return cfg;
-   }
+    /// <summary>
+    ///     Registers the ResultCrafter validation pipeline behavior into the MediatR pipeline.
+    ///     <see cref="ResultValidationBehavior{TRequest,TResponse}" /> runs every registered
+    ///     <c>IValidator&lt;TRequest&gt;</c> before each handler whose response is a ResultCrafter
+    ///     <c>Result</c> or <c>Result&lt;T&gt;</c>, short-circuiting with a structured <c>400</c> on
+    ///     failure. It is registered as a single open behavior; handlers with no registered
+    ///     <c>IValidator&lt;TRequest&gt;</c>, or whose response is not a Result, are a transparent
+    ///     pass-through.
+    /// </summary>
+    /// <example>
+    ///     <code>
+    /// builder.Services.AddMediatR(cfg =>
+    /// {
+    ///     cfg.RegisterServicesFromAssemblyContaining&lt;Program&gt;();
+    ///     cfg.AddResultCrafterValidation();
+    /// });
+    /// 
+    /// // Register your validators (any lifetime; Singleton is fine for stateless validators)
+    /// builder.Services.AddValidatorsFromAssemblyContaining&lt;Program&gt;();
+    /// </code>
+    /// </example>
+    public static MediatRServiceConfiguration AddResultCrafterValidation(this MediatRServiceConfiguration cfg)
+    {
+        cfg.AddOpenBehavior(typeof(ResultValidationBehavior<,>));
+        return cfg;
+    }
 }

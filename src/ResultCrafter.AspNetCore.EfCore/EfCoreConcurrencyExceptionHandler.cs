@@ -9,37 +9,34 @@ using ResultCrafter.Core.Primitives;
 namespace ResultCrafter.AspNetCore.EfCore;
 
 internal sealed class EfCoreConcurrencyExceptionHandler(ILogger<EfCoreConcurrencyExceptionHandler> logger)
-   : IExceptionHandler
+    : IExceptionHandler
 {
-   public async ValueTask<bool> TryHandleAsync(HttpContext httpContext,
-      Exception exception,
-      CancellationToken cancellationToken)
-   {
-      if (exception is not DbUpdateConcurrencyException)
-      {
-         return false;
-      }
+    public async ValueTask<bool> TryHandleAsync(HttpContext httpContext,
+        Exception exception,
+        CancellationToken cancellationToken)
+    {
+        if (exception is not DbUpdateConcurrencyException) return false;
 
-      if (httpContext.Response.HasStarted)
-      {
-         ResultCrafterLogger.LogResponseAlreadyStarted(
-            logger,
-            httpContext.Request.Method,
-            httpContext.Request.Path.Value ?? string.Empty);
+        if (httpContext.Response.HasStarted)
+        {
+            ResultCrafterLogger.LogResponseAlreadyStarted(
+                logger,
+                httpContext.Request.Method,
+                httpContext.Request.Path.Value ?? string.Empty);
 
-         return false;
-      }
+            return false;
+        }
 
-      var error = Error.ConcurrencyConflict();
+        var error = Error.ConcurrencyConflict();
 
-      var pd = ProblemDetailsBuilder.Build(error);
+        var pd = ProblemDetailsBuilder.Build(error);
 
-      var pds = httpContext.RequestServices.GetRequiredService<IProblemDetailsService>();
-      return await pds.TryWriteAsync(new ProblemDetailsContext
-      {
-         HttpContext = httpContext,
-         ProblemDetails = pd,
-         Exception = exception
-      });
-   }
+        var pds = httpContext.RequestServices.GetRequiredService<IProblemDetailsService>();
+        return await pds.TryWriteAsync(new ProblemDetailsContext
+        {
+            HttpContext = httpContext,
+            ProblemDetails = pd,
+            Exception = exception
+        });
+    }
 }
