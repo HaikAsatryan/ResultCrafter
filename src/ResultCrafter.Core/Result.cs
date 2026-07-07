@@ -1,4 +1,7 @@
-namespace ResultCrafter.Core.Primitives;
+using System.Diagnostics;
+using System.Diagnostics.CodeAnalysis;
+
+namespace ResultCrafter;
 
 /// <summary>
 ///     Discriminated union representing the outcome of a void operation — one that produces
@@ -12,7 +15,13 @@ namespace ResultCrafter.Core.Primitives;
 ///         <item><see cref="Accepted" /> → 202 Accepted (optionally with a poll URL)</item>
 ///         <item><see cref="Fail" /> / implicit cast from <see cref="Error" /> → error response</item>
 ///     </list>
+///     <para>
+///         A <c>default(Result)</c> instance bypasses these factories and reports success with
+///         <see cref="SuccessKind.Ok" /> (a state no factory produces); treat default instances as
+///         invalid and use <see cref="NoContent" /> for value-less success.
+///     </para>
 /// </remarks>
+[DebuggerDisplay("{DebuggerDisplay,nq}")]
 public readonly struct Result : IEquatable<Result>
 {
     /// <summary>
@@ -37,6 +46,7 @@ public readonly struct Result : IEquatable<Result>
     ///     <see langword="true" /> when the operation succeeded;
     ///     <see langword="false" /> when it produced an <see cref="Error" />.
     /// </summary>
+    [MemberNotNullWhen(false, nameof(Error))]
     public bool IsSuccess => Error is null;
 
     private Result(Error? error, SuccessKind kind, string? acceptedLocation)
@@ -75,6 +85,25 @@ public readonly struct Result : IEquatable<Result>
     {
         return Fail(error);
     }
+
+    /// <summary>
+    ///     Runs <paramref name="onSuccess" /> or <paramref name="onFailure" /> with the error,
+    ///     collapsing both paths into a single <typeparamref name="TOut" />.
+    /// </summary>
+    /// <typeparam name="TOut">The type both branches produce.</typeparam>
+    /// <param name="onSuccess">Invoked when the operation succeeded.</param>
+    /// <param name="onFailure">Invoked with <see cref="Error" /> when the operation failed.</param>
+    public TOut Match<TOut>(Func<TOut> onSuccess, Func<Error, TOut> onFailure)
+    {
+        ArgumentNullException.ThrowIfNull(onSuccess);
+        ArgumentNullException.ThrowIfNull(onFailure);
+
+        return IsSuccess ? onSuccess() : onFailure(Error.Value);
+    }
+
+    private string DebuggerDisplay => IsSuccess
+        ? $"Success({Kind})"
+        : $"Failure({Error.Value})";
 
     /// <inheritdoc />
     public bool Equals(Result other)

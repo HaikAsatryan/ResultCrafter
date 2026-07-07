@@ -11,6 +11,10 @@ on:
 permissions:
   contents: read
 
+concurrency:
+  group: publish-${{ github.workflow }}
+  cancel-in-progress: false
+
 jobs:
   publish:
     runs-on: ubuntu-latest
@@ -18,12 +22,15 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
 
       - name: Setup .NET
         uses: actions/setup-dotnet@v5
         with:
           global-json-file: global.json
+          dotnet-version: |
+            8.0.x
+            9.0.x
 
       - name: Restore
         run: dotnet restore
@@ -34,23 +41,11 @@ jobs:
       - name: Test
         run: dotnet test --no-build --configuration Release --verbosity normal
 
-      - name: Pack ResultCrafter.Core
-        run: dotnet pack src/ResultCrafter.Core/ResultCrafter.Core.csproj --no-build --configuration Release --output ${{ env.OUTPUT_DIR }}
-
-      - name: Pack ResultCrafter.AspNetCore
-        run: dotnet pack src/ResultCrafter.AspNetCore/ResultCrafter.AspNetCore.csproj --no-build --configuration Release --output ${{ env.OUTPUT_DIR }}
-
-      - name: Pack ResultCrafter.AspNetCore.EfCore
-        run: dotnet pack src/ResultCrafter.AspNetCore.EfCore/ResultCrafter.AspNetCore.EfCore.csproj --no-build --configuration Release --output ${{ env.OUTPUT_DIR }}
-
-      - name: Pack ResultCrafter.AspNetCore.FluentValidation
-        run: dotnet pack src/ResultCrafter.AspNetCore.FluentValidation/ResultCrafter.AspNetCore.FluentValidation.csproj --no-build --configuration Release --output ${{ env.OUTPUT_DIR }}
-
-      - name: Pack ResultCrafter.FluentValidation
-        run: dotnet pack src/ResultCrafter.FluentValidation/ResultCrafter.FluentValidation.csproj --no-build --configuration Release --output ${{ env.OUTPUT_DIR }}
-
-      - name: Pack ResultCrafter.MediatR
-        run: dotnet pack src/ResultCrafter.MediatR/ResultCrafter.MediatR.csproj --no-build --configuration Release --output ${{ env.OUTPUT_DIR }}
+      # Pack runs NuGet package validation (EnablePackageValidation). No baseline comparison for
+      # 2.0.0 (intentional breaking release); set PackageValidationBaselineVersion to 2.0.0 in
+      # Directory.Build.targets after it ships so later releases validate against it.
+      - name: Pack
+        run: dotnet pack ResultCrafter.slnx --no-build --configuration Release --output ${{ env.OUTPUT_DIR }}
 
       - name: Publish packages
         env:
@@ -67,7 +62,6 @@ jobs:
           shopt -s nullglob
 
           nupkgs=( "${{ env.OUTPUT_DIR }}"/*.nupkg )
-          snupkgs=( "${{ env.OUTPUT_DIR }}"/*.snupkg )
 
           if [ ${#nupkgs[@]} -eq 0 ]; then
             echo "No .nupkg files found in ${{ env.OUTPUT_DIR }}"
@@ -75,8 +69,5 @@ jobs:
             exit 1
           fi
 
+          # dotnet nuget push auto-pushes matching .snupkg symbol packages from the same directory.
           dotnet nuget push "${nupkgs[@]}" --api-key "$NUGET_API_KEY" --source "${{ env.NUGET_SOURCE }}" --skip-duplicate
-
-          if [ ${#snupkgs[@]} -gt 0 ]; then
-            dotnet nuget push "${snupkgs[@]}" --api-key "$NUGET_API_KEY" --source "${{ env.NUGET_SOURCE }}" --skip-duplicate
-          fi

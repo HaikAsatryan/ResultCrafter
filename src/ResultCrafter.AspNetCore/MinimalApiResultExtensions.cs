@@ -1,9 +1,8 @@
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Http.HttpResults;
 using ResultCrafter.AspNetCore.ProblemDetails;
-using ResultCrafter.Core.Primitives;
 
-namespace ResultCrafter.AspNetCore.Endpoints;
+namespace ResultCrafter.AspNetCore;
 
 /// <summary>
 ///     Extension methods that map <see cref="Result{T}" />, <see cref="Result" />, and
@@ -33,6 +32,7 @@ public static class MinimalApiResultExtensions
             pd.Detail,
             statusCode: pd.Status,
             title: pd.Title,
+            type: pd.Type,
             extensions: pd.Extensions);
     }
 
@@ -40,11 +40,21 @@ public static class MinimalApiResultExtensions
     ///     Maps a <see cref="Result{T}" /> to <c>200 Ok</c> on success or
     ///     <c>ProblemDetails</c> on failure.
     /// </summary>
+    /// <remarks>
+    ///     The result must have been constructed via <see cref="Result{T}.Ok" /> (or the
+    ///     implicit conversion from <typeparamref name="T" />); calling this on a
+    ///     <c>Created</c> or <c>Accepted</c> result is a programming error
+    ///     and will throw <see cref="InvalidOperationException" />.
+    /// </remarks>
     public static Results<Ok<T>, ProblemHttpResult> ToOkResult<T>(this Result<T> result)
     {
-        return result.IsSuccess
-            ? TypedResults.Ok(result.Value)
-            : CreateProblem(result.Error!.Value);
+        if (!result.IsSuccess) return CreateProblem(result.Error.Value);
+
+        if (result.Kind != SuccessKind.Ok)
+            throw new InvalidOperationException(
+                $"ToOkResult requires a Result<T> constructed via Result<T>.Ok(T). Got Kind={result.Kind}.");
+
+        return TypedResults.Ok(result.Value);
     }
 
     /// <summary>
@@ -72,11 +82,20 @@ public static class MinimalApiResultExtensions
     ///     Maps a <see cref="Result{T}" /> to <c>202 Accepted</c> on success or
     ///     <c>ProblemDetails</c> on failure.
     /// </summary>
+    /// <remarks>
+    ///     The result must have been constructed via <see cref="Result{T}.Accepted" />;
+    ///     calling this on an <c>Ok</c> or <c>Created</c> result is a programming error
+    ///     and will throw <see cref="InvalidOperationException" />.
+    /// </remarks>
     public static Results<Accepted<T>, ProblemHttpResult> ToAcceptedResult<T>(this Result<T> result)
     {
-        return result.IsSuccess
-            ? TypedResults.Accepted(result.Location, result.Value!)
-            : CreateProblem(result.Error!.Value);
+        if (!result.IsSuccess) return CreateProblem(result.Error.Value);
+
+        if (result.Kind != SuccessKind.Accepted)
+            throw new InvalidOperationException(
+                $"ToAcceptedResult requires a Result<T> constructed via Result<T>.Accepted(T, string?). Got Kind={result.Kind}.");
+
+        return TypedResults.Accepted(result.Location, result.Value!);
     }
 
     /// <summary>

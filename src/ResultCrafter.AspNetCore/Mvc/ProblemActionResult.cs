@@ -2,9 +2,8 @@
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.DependencyInjection;
 using ResultCrafter.AspNetCore.ProblemDetails;
-using ResultCrafter.Core.Primitives;
 
-namespace ResultCrafter.AspNetCore.Controllers;
+namespace ResultCrafter.AspNetCore.Mvc;
 
 /// <summary>
 ///     An <see cref="ActionResult" /> that writes an RFC 9457 ProblemDetails response for a
@@ -52,6 +51,11 @@ public sealed class ProblemActionResult : ActionResult
         // (instance, traceId, requestId) and strip internal x-rc marker extensions
         // before the body is serialised.
         var pd = ProblemDetailsBuilder.Build(Error);
+
+        // Align the transport status with the mapped error before writing. MVC leaves the
+        // response at 200 for a custom ActionResult, and IProblemDetailsService serialises
+        // the body but never copies pd.Status onto the response.
+        httpContext.Response.StatusCode = pd.Status ?? StatusCodes.Status500InternalServerError;
 
         var pds = httpContext.RequestServices.GetRequiredService<IProblemDetailsService>();
 

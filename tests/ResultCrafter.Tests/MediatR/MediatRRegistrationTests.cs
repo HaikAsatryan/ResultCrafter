@@ -1,7 +1,6 @@
 using FluentValidation;
 using MediatR;
 using Microsoft.Extensions.DependencyInjection;
-using ResultCrafter.Core.Primitives;
 using ResultCrafter.MediatR;
 
 namespace ResultCrafter.Tests.MediatR;
@@ -30,7 +29,7 @@ public sealed class MediatRRegistrationTests
         using var provider = BuildProvider();
         var mediator = provider.GetRequiredService<IMediator>();
 
-        var result = await mediator.Send(new RegDeleteCommand(0));
+        var result = await mediator.Send(new RegDeleteCommand(0), TestContext.Current.CancellationToken);
 
         Assert.False(result.IsSuccess);
         Assert.Equal(ErrorType.BadRequest, result.Error!.Value.Type);
@@ -42,7 +41,7 @@ public sealed class MediatRRegistrationTests
         using var provider = BuildProvider();
         var mediator = provider.GetRequiredService<IMediator>();
 
-        var result = await mediator.Send(new RegValueQuery(0));
+        var result = await mediator.Send(new RegValueQuery(0), TestContext.Current.CancellationToken);
 
         Assert.False(result.IsSuccess);
         Assert.Equal(ErrorType.BadRequest, result.Error!.Value.Type);
@@ -54,7 +53,7 @@ public sealed class MediatRRegistrationTests
         using var provider = BuildProvider();
         var mediator = provider.GetRequiredService<IMediator>();
 
-        var result = await mediator.Send(new RegValueQuery(5));
+        var result = await mediator.Send(new RegValueQuery(5), TestContext.Current.CancellationToken);
 
         Assert.True(result.IsSuccess);
         Assert.Equal(5, result.Value);

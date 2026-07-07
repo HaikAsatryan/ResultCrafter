@@ -1,4 +1,4 @@
-namespace ResultCrafter.Core.Primitives;
+namespace ResultCrafter;
 
 /// <summary>
 ///     Categorises the failure mode of an <see cref="Error" />, determining the HTTP
@@ -39,5 +39,17 @@ public enum ErrorType
     ///     Optimistic-concurrency token mismatch (HTTP 409).
     ///     The caller should re-fetch and retry.
     /// </summary>
-    ConcurrencyConflict = 6
+    ConcurrencyConflict = 6,
+
+    /// <summary>The resource existed but is permanently unavailable. Maps to HTTP 410.</summary>
+    Gone = 7,
+
+    /// <summary>
+    ///     The request was well-formed but semantically invalid and could not be processed.
+    ///     Maps to HTTP 422.
+    /// </summary>
+    UnprocessableEntity = 8,
+
+    /// <summary>The caller exceeded a rate limit or quota. Maps to HTTP 429.</summary>
+    TooManyRequests = 9
 }

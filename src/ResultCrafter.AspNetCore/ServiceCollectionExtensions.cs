@@ -1,10 +1,8 @@
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Options;
-using ResultCrafter.AspNetCore.ExceptionHandling;
-using ResultCrafter.AspNetCore.Options;
 
-namespace ResultCrafter.AspNetCore.DependencyInjection;
+namespace ResultCrafter.AspNetCore;
 
 /// <summary>
 ///     Extension methods for registering ResultCrafter services with the DI container.

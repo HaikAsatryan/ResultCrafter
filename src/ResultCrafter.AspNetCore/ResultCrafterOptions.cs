@@ -1,11 +1,11 @@
 ﻿using Microsoft.Extensions.Logging;
 
-namespace ResultCrafter.AspNetCore.Options;
+namespace ResultCrafter.AspNetCore;
 
 /// <summary>
 ///     Top-level configuration for ResultCrafter's exception and error-response behaviour.
 ///     Pass a configuration delegate to
-///     <see cref="DependencyInjection.ServiceCollectionExtensions.AddResultCrafter" />.
+///     <see cref="ServiceCollectionExtensions.AddResultCrafter" />.
 /// </summary>
 public sealed class ResultCrafterOptions
 {

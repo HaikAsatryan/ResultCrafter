@@ -10,7 +10,7 @@ public static partial class ResultCrafterLogger
 {
     /// <summary>
     ///     Logs a <c>4xx</c> client error at the level specified by
-    ///     <see cref="Options.ResultCrafterOptions.ClientErrorLogLevel" />.
+    ///     <see cref="ResultCrafterOptions.ClientErrorLogLevel" />.
     ///     The <paramref name="level" /> parameter is required because the log level is
     ///     configurable at runtime; omitting the <c>Level</c> attribute on
     ///     <c>[LoggerMessage]</c> delegates level selection to the call site.
@@ -33,7 +33,7 @@ public static partial class ResultCrafterLogger
 
     /// <summary>
     ///     Logs an unhandled exception that is being converted to a <c>500</c> ProblemDetails
-    ///     response by <see cref="ExceptionHandling.ResultCrafterExceptionHandler" />.
+    ///     response by <see cref="ResultCrafterExceptionHandler" />.
     ///     Always logged at <see cref="LogLevel.Error" />.
     /// </summary>
     [LoggerMessage(

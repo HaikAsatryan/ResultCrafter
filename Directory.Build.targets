@@ -1,0 +1,11 @@
+<Project>
+  <!-- Evaluated after each project file, so the test/demo IsPackable=false overrides are
+       visible here (a PropertyGroup condition in Directory.Build.props would not see them). -->
+  <PropertyGroup Condition="'$(IsPackable)' == 'true'">
+    <EnablePackageValidation>true</EnablePackageValidation>
+    <!-- 2.0.0 is an intentional breaking release, so no baseline comparison against 1.x.
+         After 2.0.0 ships, set <PackageValidationBaselineVersion>2.0.0</PackageValidationBaselineVersion>
+         here so subsequent releases are validated against it. -->
+    <IsAotCompatible Condition="'$(IsAotCompatible)' == ''">true</IsAotCompatible>
+  </PropertyGroup>
+</Project>

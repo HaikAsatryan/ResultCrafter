@@ -1,7 +1,6 @@
 ﻿using FluentValidation;
 using FluentValidation.Results;
 using MediatR;
-using ResultCrafter.Core.Primitives;
 using ResultCrafter.MediatR;
 
 namespace ResultCrafter.Tests.MediatR;

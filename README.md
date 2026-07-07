@@ -14,20 +14,23 @@ ResultCrafter ships as six focused NuGet packages under the `ResultCrafter.*` pr
 
 1. [Packages](#packages)
 2. [Installation](#installation)
-3. [Getting Started](#getting-started)
-4. [Demo: Every Scenario](#demo-every-scenario)
-5. [Map: Transforming Results](#map-transforming-results)
-6. [MVC Controller Support](#mvc-controller-support)
-7. [FluentValidation Integration](#fluentvalidation-integration)
-8. [Endpoint Filter Validation (Minimal API)](#endpoint-filter-validation-minimal-api)
-9. [MediatR + FluentValidation Pipeline](#mediatr--fluentvalidation-pipeline)
-10. [EF Core Integration](#ef-core-integration)
-11. [Configuration](#configuration)
-12. [Performance](#performance)
-13. [Limitations](#limitations)
-14. [Alternatives](#alternatives)
-15. [Why ResultCrafter](#why-resultcrafter)
-16. [Roadmap](#roadmap)
+3. [Migrating to 2.0](#migrating-to-20)
+4. [Getting Started](#getting-started)
+5. [Demo: Every Scenario](#demo-every-scenario)
+6. [Map: Transforming Results](#map-transforming-results)
+7. [MVC Controller Support](#mvc-controller-support)
+8. [FluentValidation Integration](#fluentvalidation-integration)
+9. [Endpoint Filter Validation (Minimal API)](#endpoint-filter-validation-minimal-api)
+10. [MediatR + FluentValidation Pipeline](#mediatr--fluentvalidation-pipeline)
+11. [EF Core Integration](#ef-core-integration)
+12. [Configuration](#configuration)
+13. [Performance](#performance)
+14. [Limitations](#limitations)
+15. [Alternatives](#alternatives)
+16. [Why ResultCrafter](#why-resultcrafter)
+17. [Testing](#testing)
+18. [Roadmap](#roadmap)
+19. [Contributing](#contributing)
 
 ---
 
@@ -35,7 +38,7 @@ ResultCrafter ships as six focused NuGet packages under the `ResultCrafter.*` pr
 
 | Package                                     | Purpose                                                                                                                                                        |
 |---------------------------------------------|----------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| `ResultCrafter.Core`                        | The `Result<T>`, `Result`, `Error`, and `ErrorType` primitives. No framework dependencies.                                                                     |
+| `ResultCrafter.Core`                        | The `Result<T>`, `Result`, `Error`, and `ErrorType` primitives, all in the root `ResultCrafter` namespace. No framework dependencies.                          |
 | `ResultCrafter.AspNetCore`                  | RFC 9457 ProblemDetails pipeline, `IExceptionHandler`, structured logging, Minimal API extensions, and MVC controller extensions.                              |
 | `ResultCrafter.AspNetCore.EfCore`           | Intercepts `DbUpdateConcurrencyException` and maps it to a 409 ProblemDetails response automatically.                                                          |
 | `ResultCrafter.AspNetCore.FluentValidation` | `WithValidation<T>()` endpoint filter that validates Minimal API requests with their `IValidator<T>` and short-circuits with a 400 ProblemDetails.             |
@@ -61,6 +64,55 @@ dotnet add package ResultCrafter.MediatR                      # optional, Mediat
 
 ---
 
+## Migrating to 2.0
+
+ResultCrafter 2.0.0 is a breaking release. Two changes affect consuming code; everything else is additive
+or a fix. Package IDs are unchanged.
+
+### 1. Namespaces are flattened
+
+| v1.x namespace                         | v2.0 namespace                 |
+|----------------------------------------|--------------------------------|
+| `ResultCrafter.Core.Primitives`        | `ResultCrafter`                |
+| `ResultCrafter.AspNetCore.Endpoints`   | `ResultCrafter.AspNetCore`     |
+| `ResultCrafter.AspNetCore.Controllers` | `ResultCrafter.AspNetCore.Mvc` |
+
+DI, options, and exception-handling types are also flattened into `ResultCrafter.AspNetCore`.
+`ResultCrafter.AspNetCore.ProblemDetails`, `ResultCrafter.AspNetCore.EfCore`,
+`ResultCrafter.AspNetCore.FluentValidation`, `ResultCrafter.FluentValidation`, and `ResultCrafter.MediatR`
+are unchanged. Fixing the migration is a find-and-replace over `using` directives.
+
+### 2. Success values must be non-null
+
+- `Result<T>.Ok`, `Result<T>.Created`, and `Result<T>.Accepted` now throw `ArgumentNullException` when
+  passed a null value. Use the void `Result` (`Result.NoContent()` / `Result.Accepted()`) when success
+  carries no value.
+- `IsSuccess` is annotated with `[MemberNotNullWhen(true, nameof(Value))]` and
+  `[MemberNotNullWhen(false, nameof(Error))]`: after checking `IsSuccess`, neither `Value` nor `Error`
+  needs the null-forgiving `!` operator anymore.
+- `Map` throws `InvalidOperationException` if its selector returns null.
+- `default(Result<T>)` bypasses the factories and is invalid; always construct results through the factories.
+
+### Also in 2.0
+
+- Three new error types: `ErrorType.Gone` (410), `ErrorType.UnprocessableEntity` (422), and
+  `ErrorType.TooManyRequests` (429), with matching `Error.Gone()` / `Error.UnprocessableEntity()` /
+  `Error.TooManyRequests()` factories, `[ProducesGone]` / `[ProducesUnprocessableEntity]` /
+  `[ProducesTooManyRequests]` controller attributes, and `.ProducesGone()` /
+  `.ProducesUnprocessableEntity()` / `.ProducesTooManyRequests()` Minimal API builder extensions.
+  Bare 410/422/429 responses are also normalized to the house style.
+- Fixed: controller `To*Result` error responses and the EF Core concurrency handler now set the HTTP
+  transport status code (previously the ProblemDetails body was correct but the status line could read
+  200 or 500).
+- All `To*Result` methods now enforce `SuccessKind` and throw `InvalidOperationException` on a mismatch,
+  on both the Minimal API and controller surfaces.
+- Added `Result.Match` / `Result<T>.Match`.
+- `Error.BadRequest(errors)` merges field-error keys that differ only by case instead of overwriting.
+- EF Core dependency floors are open minimums (`8.0.0` / `9.0.0` / `10.0.0`), so consumers can float to
+  any later patch.
+
+---
+
 ## Getting Started
 
 Two lines in `Program.cs` is all it takes to get fully configured ProblemDetails, structured logging, and exception
@@ -68,6 +120,9 @@ handling:
 
 ```csharp
 // Program.cs
+using ResultCrafter.AspNetCore;
+using ResultCrafter.AspNetCore.EfCore;
+
 builder.Services
     .AddResultCrafter()          // registers ProblemDetails, IExceptionHandler, logging
     .AddResultCrafterEfCore();   // optional: intercepts DbUpdateConcurrencyException
@@ -91,12 +146,17 @@ app.MapGet("/orders/{id:int}", async (int id, OrderService svc, CancellationToke
 ### Building an Error in your service layer
 
 ```csharp
+using ResultCrafter;
+
 // Simple errors with an optional detail message
 return Error.NotFound($"Order {id} does not exist.");
 return Error.Unauthorized("A valid API key is required.");
 return Error.Forbidden("Only admins can access this resource.");
 return Error.Conflict($"An order named '{name}' already exists.");
 return Error.ConcurrencyConflict("The order was modified by another request. Fetch and retry.");
+return Error.Gone($"Order {id} was archived and permanently removed.");
+return Error.UnprocessableEntity("The order references a discontinued product.");
+return Error.TooManyRequests("Rate limit exceeded. Retry in 60 seconds.");
 
 // Plain 400 with a prose reason
 return Error.BadRequest("At least one item ID must be provided.");
@@ -112,6 +172,8 @@ return Error.BadRequest(new Dictionary<string, string[]>
 ### Returning Results from your service
 
 ```csharp
+using ResultCrafter;
+
 return Result<OrderDto>.Ok(dto);                                    // 200
 return dto;                                                         // 200 - implicit conversion
 return Result<OrderDto>.Created($"/api/orders/{id}", dto);          // 201
@@ -121,9 +183,14 @@ return Result.Accepted();                                           // 202 void
 return Error.NotFound($"Order {id} does not exist.");               // failure - implicit conversion
 ```
 
+All `Result<T>` success factories reject null values with `ArgumentNullException`. When success carries
+no value, use the void `Result` (`Result.NoContent()` / `Result.Accepted()`) instead of a null payload.
+
 ### Mapping to HTTP responses in Minimal API handlers
 
 ```csharp
+using ResultCrafter.AspNetCore;
+
 // GET /orders/{id} -> 200 Ok<OrderDto> or 404 ProblemDetails
 app.MapGet("/orders/{id:int}", async (int id, OrderService svc, CancellationToken ct) =>
     (await svc.GetAsync(id, ct)).ToOkResult())
@@ -163,7 +230,9 @@ app.MapPost("/orders/bulk-cancel", async (BulkCancelRequest req, OrderService sv
 > a different story. `ProblemHttpResult` is deliberately excluded from automatic inference, so each possible problem
 > status code needs to be declared explicitly. That is what the `ProducesNotFound()`, `ProducesBadRequest()`,
 > `ProducesConflict()` etc. extension calls are doing. They have no effect at runtime. They exist purely to populate
-> the OpenAPI schema correctly.
+> the OpenAPI schema correctly. The full set: `ProducesBadRequest()` (400), `ProducesUnauthorized()` (401),
+> `ProducesForbidden()` (403), `ProducesNotFound()` (404), `ProducesConflict()` (409), `ProducesGone()` (410),
+> `ProducesUnprocessableEntity()` (422), and `ProducesTooManyRequests()` (429).
 
 ### What the error response looks like
 
@@ -207,15 +276,21 @@ A validation 400 from `Error.BadRequest(fieldErrors)` produces:
 ### Unhandled exception (500) and EF Core concurrency (409) demo endpoints
 
 ```csharp
+using Microsoft.EntityFrameworkCore;
+
 // Throws an unhandled exception. ResultCrafterExceptionHandler logs it at Error
 // and converts it to a sanitised 500 ProblemDetails (full detail in dev/staging).
 app.MapGet("/items/crash", () =>
-    throw new InvalidOperationException("Simulated unhandled exception - watch the logs."));
+{
+    throw new InvalidOperationException("Simulated unhandled exception - watch the logs.");
+});
 
 // Throws DbUpdateConcurrencyException. EfCoreHandler intercepts it as 409
 // before the generic 500 handler ever sees it.
 app.MapGet("/items/db-crash", () =>
-    throw new DbUpdateConcurrencyException("Simulated EF Core conflict.", []));
+{
+    throw new DbUpdateConcurrencyException("Simulated EF Core conflict.", []);
+});
 ```
 
 The 500 response (sanitised in production):
@@ -251,13 +326,15 @@ framework default. No configuration is required; this is part of `AddResultCraft
 On the failure path, the error propagates unchanged without invoking the selector.
 
 ```csharp
+using ResultCrafter;
+
 // Without Map
 public async Task<Result<OrderDto>> GetAsync(int id, CancellationToken ct)
 {
     var result = await _repo.FindAsync(id, ct); // returns Result<Order>
     if (!result.IsSuccess)
-        return Result<OrderDto>.Fail(result.Error!.Value);
-    return Result<OrderDto>.Ok(result.Value!.ToDto());
+        return Result<OrderDto>.Fail(result.Error.Value); // Error is non-null here ([MemberNotNullWhen])
+    return Result<OrderDto>.Ok(result.Value.ToDto());     // Value is non-null here, no ! needed
 }
 
 // With Map
@@ -303,7 +380,7 @@ the same `IExceptionHandler` behaviour for 5xx errors. None of this needs to be 
 The method names mirror the Minimal API versions exactly. Only the return types differ.
 
 ```csharp
-using ResultCrafter.AspNetCore.Controllers;
+using ResultCrafter.AspNetCore.Mvc;
 
 // Result<T> - returns ActionResult<T>
 result.ToOkResult()        // 200 Ok or ProblemDetails
@@ -324,19 +401,22 @@ Where Minimal API endpoints use builder extension methods (`.ProducesNotFound()`
 ResultCrafter provides a matching set, each inheriting from `ProducesResponseTypeAttribute<ProblemDetails>`:
 
 ```csharp
-using ResultCrafter.AspNetCore.Controllers;
+using ResultCrafter.AspNetCore.Mvc;
 
-[ProducesBadRequest]    // 400
-[ProducesUnauthorized]  // 401
-[ProducesForbidden]     // 403
-[ProducesNotFound]      // 404
-[ProducesConflict]      // 409
+[ProducesBadRequest]            // 400
+[ProducesUnauthorized]          // 401
+[ProducesForbidden]             // 403
+[ProducesNotFound]              // 404
+[ProducesConflict]              // 409
+[ProducesGone]                  // 410
+[ProducesUnprocessableEntity]   // 422
+[ProducesTooManyRequests]       // 429
 ```
 
 ### Example controller
 
 ```csharp
-using ResultCrafter.AspNetCore.Controllers;
+using ResultCrafter.AspNetCore.Mvc;
 
 [ApiController]
 [Route("api/orders")]
@@ -372,6 +452,8 @@ No additional DI registration is required. `AddResultCrafter()` covers everythin
 The `ResultCrafter.FluentValidation` package bridges your validators directly to `Error.BadRequest`:
 
 ```csharp
+using FluentValidation;
+
 public sealed class CreateOrderRequestValidator : AbstractValidator<CreateOrderRequest>
 {
     public CreateOrderRequestValidator()
@@ -389,6 +471,9 @@ public sealed class CreateOrderRequestValidator : AbstractValidator<CreateOrderR
 In your service:
 
 ```csharp
+using ResultCrafter;
+using ResultCrafter.FluentValidation;
+
 public async Task<Result<OrderDto>> CreateAsync(CreateOrderRequest req, CancellationToken ct)
 {
     var error = await _validator.ValidateToResultAsync(req, ct);
@@ -413,6 +498,7 @@ endpoints. `WithValidation<T>()` adds an endpoint filter that resolves the regis
 `T` argument before your handler runs, and short-circuits with a 400 ProblemDetails on failure.
 
 ```csharp
+using ResultCrafter.AspNetCore;
 using ResultCrafter.AspNetCore.FluentValidation;
 
 // Register your validators once. AddResultCrafterValidation() scans the calling assembly and
@@ -473,7 +559,7 @@ If validation fails, the pipeline short-circuits and returns `Error.BadRequest(f
 ### Registration
 
 ```csharp
-using FluentValidation.DependencyInjectionExtensions;
+using FluentValidation;
 using ResultCrafter.MediatR;
 
 builder.Services.AddMediatR(cfg =>
@@ -481,11 +567,19 @@ builder.Services.AddMediatR(cfg =>
     cfg.RegisterServicesFromAssemblyContaining<Program>();
     cfg.AddResultCrafterValidation();
 });
+
+// Register your validators (any lifetime; Singleton is fine for stateless validators).
+// Without this, the pipeline behavior finds no validators and passes every request through.
+builder.Services.AddValidatorsFromAssemblyContaining<Program>();
 ```
 
 ### Example: `Result<T>` handler
 
 ```csharp
+using FluentValidation;
+using MediatR;
+using ResultCrafter;
+
 public sealed record CreateOrderCommand(string CustomerEmail, int Quantity) : IRequest<Result<OrderDto>>;
 
 public sealed class CreateOrderCommandValidator : AbstractValidator<CreateOrderCommand>
@@ -514,6 +608,10 @@ public sealed class CreateOrderHandler(OrderService svc)
 ### Example: void `Result` handler
 
 ```csharp
+using FluentValidation;
+using MediatR;
+using ResultCrafter;
+
 public sealed record CancelOrderCommand(int OrderId) : IRequest<Result>;
 
 public sealed class CancelOrderCommandValidator : AbstractValidator<CancelOrderCommand>
@@ -549,6 +647,9 @@ Add `AddResultCrafterEfCore()` after `AddResultCrafter()` to automatically catch
 in your request pipeline:
 
 ```csharp
+using ResultCrafter.AspNetCore;
+using ResultCrafter.AspNetCore.EfCore;
+
 builder.Services
     .AddResultCrafter()
     .AddResultCrafterEfCore();
@@ -572,6 +673,8 @@ if (entity.Version != request.Version)
 All configuration is optional. The defaults are sensible for production use.
 
 ```csharp
+using ResultCrafter.AspNetCore;
+
 builder.Services.AddResultCrafter(options =>
 {
     // How much exception detail to include in 500 responses.
@@ -593,9 +696,10 @@ builder.Services.AddResultCrafter(options =>
 
 ### Environment detection for ExceptionDetailMode.Auto
 
-When `ExceptionDetailMode` is `Auto`, ResultCrafter exposes full exception details if the environment name contains any
-of: `dev`, `local`, `test`, `qa`, `stage`, `uat`, `preprod`, `sandbox`, `debug`. Everything else is treated as
-production and sanitized. This check runs once at startup, not per request.
+When `ExceptionDetailMode` is `Auto`, ResultCrafter exposes full exception details if the environment is the standard
+`Development` or `Staging` environment, or if the environment name contains any of: `dev`, `local`, `test`, `qa`,
+`stage`, `uat`, `preprod`, `sandbox`, `debug`. Everything else is treated as production and sanitized. This check runs
+once at startup, not per request.
 
 ---
 
@@ -668,7 +772,7 @@ trade-offs. This table is evaluated from the perspective of a Minimal API-first 
 | **MVC controller extensions**            |        Yes         | Yes (primary path) |                No                |            No             |        No         |               No               |
 | **FluentValidation bridge**              | Yes (separate pkg) | Yes (separate pkg) |                No                |            No             |        No         |               No               |
 | **MediatR pipeline behaviors**           | Yes (separate pkg) |         No         |                No                |            No             |        No         |               No               |
-| **Map / functional helpers**             |        Map         | Map, Bind, Railway | MatchFirst, Then, FailIf, Switch | Map, Bind, Merge, CheckIf |       Match       | Full FP (monads, optics, etc.) |
+| **Map / functional helpers**             |     Map, Match     | Map, Bind, Railway | MatchFirst, Then, FailIf, Switch | Map, Bind, Merge, CheckIf |       Match       | Full FP (monads, optics, etc.) |
 | **EF Core concurrency handler**          | Yes (separate pkg) |         No         |                No                |            No             |        No         |               No               |
 | **Min .NET version**                     |       .NET 8       |      .NET 6+       |             .NET 7+              |          .NET 6+          | .NET Standard 2.0 |       .NET Standard 2.0        |
 | **Multi-target (8/9/10)**                |        Yes         |         No         |                No                |         Yes (8/9)         |        No         |               No               |

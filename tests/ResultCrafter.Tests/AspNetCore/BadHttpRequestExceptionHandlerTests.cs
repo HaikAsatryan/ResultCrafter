@@ -6,8 +6,7 @@ using Microsoft.AspNetCore.Routing;
 using Microsoft.AspNetCore.TestHost;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging.Abstractions;
-using ResultCrafter.AspNetCore.DependencyInjection;
-using ResultCrafter.AspNetCore.ExceptionHandling;
+using ResultCrafter.AspNetCore;
 
 namespace ResultCrafter.Tests.AspNetCore;
 
@@ -32,16 +31,17 @@ public sealed class BadHttpRequestExceptionHandlerTests
                 a.MapGet("/bind", (int requiredId) => Results.Ok(requiredId));
             });
 
-        await app.StartAsync();
+        await app.StartAsync(TestContext.Current.CancellationToken);
         using var client = app.GetTestClient();
 
         // requiredId is omitted -> BadHttpRequestException with StatusCode 400.
-        var response = await client.GetAsync("/bind");
+        var response = await client.GetAsync("/bind", TestContext.Current.CancellationToken);
 
         Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
         Assert.Equal("application/problem+json", response.Content.Headers.ContentType?.MediaType);
 
-        using var doc = JsonDocument.Parse(await response.Content.ReadAsStringAsync());
+        using var doc =
+            JsonDocument.Parse(await response.Content.ReadAsStringAsync(TestContext.Current.CancellationToken));
         var root = doc.RootElement;
         Assert.Equal(400, root.GetProperty("status").GetInt32());
         // Normalized to the ResultCrafter house style: not the framework "Bad Request", and not the
@@ -68,15 +68,16 @@ public sealed class BadHttpRequestExceptionHandlerTests
                         StatusCodes.Status413PayloadTooLarge));
             });
 
-        await app.StartAsync();
+        await app.StartAsync(TestContext.Current.CancellationToken);
         using var client = app.GetTestClient();
 
-        var response = await client.GetAsync("/too-large");
+        var response = await client.GetAsync("/too-large", TestContext.Current.CancellationToken);
 
         Assert.Equal(HttpStatusCode.RequestEntityTooLarge, response.StatusCode); // 413
         Assert.Equal("application/problem+json", response.Content.Headers.ContentType?.MediaType);
 
-        using var doc = JsonDocument.Parse(await response.Content.ReadAsStringAsync());
+        using var doc =
+            JsonDocument.Parse(await response.Content.ReadAsStringAsync(TestContext.Current.CancellationToken));
         Assert.Equal(413, doc.RootElement.GetProperty("status").GetInt32());
     }
 

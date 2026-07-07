@@ -1,6 +1,4 @@
-﻿using ResultCrafter.Core.Primitives;
-
-namespace ResultCrafter.AspNetCore.ProblemDetails;
+﻿namespace ResultCrafter.AspNetCore.ProblemDetails;
 
 /// <summary>
 ///     Constructs <see cref="Microsoft.AspNetCore.Mvc.ProblemDetails" /> instances from

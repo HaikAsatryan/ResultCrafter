@@ -1,4 +1,4 @@
-namespace ResultCrafter.Core.Primitives;
+namespace ResultCrafter;
 
 /// <summary>
 ///     Indicates which HTTP success status code a <see cref="Result{T}" /> should map to.

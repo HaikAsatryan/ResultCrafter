@@ -1,6 +1,4 @@
-﻿using ResultCrafter.Core.Primitives;
-
-namespace ResultCrafter.Tests.Core;
+﻿namespace ResultCrafter.Tests.Core;
 
 public sealed class ErrorTests
 {
@@ -124,6 +122,17 @@ public sealed class ErrorTests
         var error = Error.BadRequest(errors, "Validation failed.");
 
         Assert.Equal("Validation failed.", error.Detail);
+    }
+
+    [Fact]
+    public void BadRequest_WithNullMessageArray_ThrowsArgumentException()
+    {
+        var errors = new Dictionary<string, string[]>
+        {
+            ["field"] = null!
+        };
+
+        Assert.Throws<ArgumentException>(() => Error.BadRequest(errors));
     }
 
     // ── Equality ──────────────────────────────────────────────────────────────

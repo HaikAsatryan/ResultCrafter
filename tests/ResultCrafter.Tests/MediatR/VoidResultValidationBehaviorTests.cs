@@ -1,7 +1,6 @@
 ﻿using FluentValidation;
 using FluentValidation.Results;
 using MediatR;
-using ResultCrafter.Core.Primitives;
 using ResultCrafter.MediatR;
 
 namespace ResultCrafter.Tests.MediatR;
@@ -221,9 +220,12 @@ public sealed class VoidResultValidationBehaviorTests
     {
         public DeleteCommandSecondaryValidator()
         {
+            // Fails for Id == 0 so the multi-validator test genuinely collects failures from
+            // both validators (the earlier LessThan(1000) rule could never fail together with
+            // GreaterThan(0), and the old expectation only held via a shared-context double-count).
             RuleFor(x => x.Id)
-                .LessThan(1000)
-                .WithMessage("Id must be less than 1000.");
+                .NotEqual(0)
+                .WithMessage("Id must not be 0.");
         }
     }
 

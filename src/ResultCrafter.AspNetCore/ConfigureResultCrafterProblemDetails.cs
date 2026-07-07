@@ -2,10 +2,9 @@
 using Microsoft.AspNetCore.WebUtilities;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
-using ResultCrafter.AspNetCore.Options;
 using ResultCrafter.AspNetCore.ProblemDetails;
 
-namespace ResultCrafter.AspNetCore.DependencyInjection;
+namespace ResultCrafter.AspNetCore;
 
 /// <summary>
 ///     Registered as <see cref="IPostConfigureOptions{TOptions}" /> so our customisation
@@ -104,9 +103,15 @@ internal sealed class ConfigureResultCrafterProblemDetails(
         var status = pd.Status ?? httpContext.Response.StatusCode;
         if (!HttpErrorCatalog.TryGetErrorType(status, out var type)) return;
 
-        // Only rewrite a title still at the framework default (e.g. "Bad Request"). A Result-based
-        // response or an application customization has set a different title we must preserve.
-        if (!string.Equals(pd.Title, ReasonPhrases.GetReasonPhrase(status), StringComparison.Ordinal)) return;
+        // Only rewrite a title still at the framework default. A Result-based response or an
+        // application customization has set a different title we must preserve. A null/empty title
+        // also counts as "framework default": ASP.NET Core only pre-populates Title (with the reason
+        // phrase) for status codes in its ProblemDetailsDefaults table, which omits 410 and 429, so
+        // without the IsNullOrEmpty branch bare Gone/TooManyRequests responses would skip
+        // normalization and break dev/prod parity for exactly those catalog types.
+        if (!string.IsNullOrEmpty(pd.Title) &&
+            !string.Equals(pd.Title, ReasonPhrases.GetReasonPhrase(status), StringComparison.Ordinal))
+            return;
 
         pd.Title = HttpErrorCatalog.Title(type);
         pd.Type ??= HttpErrorCatalog.TypeUri(type);

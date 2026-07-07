@@ -4,7 +4,6 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using ResultCrafter.AspNetCore.ProblemDetails;
-using ResultCrafter.Core.Primitives;
 
 namespace ResultCrafter.AspNetCore.EfCore;
 
@@ -30,6 +29,11 @@ internal sealed class EfCoreConcurrencyExceptionHandler(ILogger<EfCoreConcurrenc
         var error = Error.ConcurrencyConflict();
 
         var pd = ProblemDetailsBuilder.Build(error);
+
+        // Align the response status with the mapped error before writing. The exception-handler
+        // middleware has already set 500, and IProblemDetailsService serialises the body but
+        // never copies pd.Status onto the transport response.
+        httpContext.Response.StatusCode = HttpErrorCatalog.Status(error.Type);
 
         var pds = httpContext.RequestServices.GetRequiredService<IProblemDetailsService>();
         return await pds.TryWriteAsync(new ProblemDetailsContext

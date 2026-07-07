@@ -1,5 +1,4 @@
 ﻿using ResultCrafter.AspNetCore.ProblemDetails;
-using ResultCrafter.Core.Primitives;
 
 namespace ResultCrafter.Tests.AspNetCore;
 
@@ -84,6 +83,9 @@ public sealed class ProblemDetailsBuilderTests
 
         foreach (var type in types)
         {
+            // None is the sentinel: rejected by every factory and by the catalog.
+            if (type == ErrorType.None) continue;
+
             var error = type switch
             {
                 ErrorType.BadRequest => Error.BadRequest("detail"),
@@ -92,7 +94,11 @@ public sealed class ProblemDetailsBuilderTests
                 ErrorType.Unauthorized => Error.Unauthorized(),
                 ErrorType.Forbidden => Error.Forbidden(),
                 ErrorType.ConcurrencyConflict => Error.ConcurrencyConflict(),
-                _ => Error.BadRequest("fallback")
+                ErrorType.Gone => Error.Gone(),
+                ErrorType.UnprocessableEntity => Error.UnprocessableEntity(),
+                ErrorType.TooManyRequests => Error.TooManyRequests(),
+                _ => throw new InvalidOperationException(
+                    $"ErrorType.{type} has no factory case in this test; add one so it is actually covered.")
             };
 
             var pd = ProblemDetailsBuilder.Build(error);
