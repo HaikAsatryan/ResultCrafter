@@ -3,8 +3,6 @@ using FluentValidation;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Options;
-using ResultCrafter.AspNetCore.Endpoints;
-using ResultCrafter.Core.Primitives;
 using ResultCrafter.FluentValidation;
 using JsonOptions = Microsoft.AspNetCore.Http.Json.JsonOptions;
 
@@ -18,7 +16,9 @@ namespace ResultCrafter.AspNetCore.FluentValidation;
 /// <remarks>
 ///     The filter is a transparent pass-through (the handler runs normally) when the endpoint has
 ///     no <typeparamref name="TRequest" /> argument, which makes it safe to apply to a whole route
-///     group whose endpoints don't all take a <typeparamref name="TRequest" />. If a
+///     group whose endpoints don't all take a <typeparamref name="TRequest" />. An argument bound
+///     as <see langword="null" /> (e.g. an optional body that was omitted) is indistinguishable
+///     from a missing argument at the filter level and also passes through. If a non-null
 ///     <typeparamref name="TRequest" /> argument <i>is</i> present but no <see cref="IValidator{T}" />
 ///     is registered, the filter throws an <see cref="InvalidOperationException" /> so the
 ///     misconfiguration surfaces immediately instead of silently skipping validation.
@@ -38,8 +38,9 @@ public sealed class ValidationFilter<TRequest> : IEndpointFilter where TRequest 
     {
         var request = context.Arguments.OfType<TRequest>().FirstOrDefault();
         if (request is null)
-            // The endpoint has no TRequest argument to validate. This is expected when the filter
-            // is applied to a route group whose endpoints don't all take a TRequest, so pass through.
+            // No non-null TRequest argument to validate: either the endpoint doesn't take one
+            // (expected when the filter is applied to a route group) or an optional argument was
+            // bound as null. The two cases are indistinguishable here, so pass through.
             return await next(context);
 
         // A TRequest argument is present, so a validator is genuinely expected. Fail fast on a

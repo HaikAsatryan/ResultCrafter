@@ -7,7 +7,7 @@ using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Http.HttpResults;
 using Microsoft.AspNetCore.TestHost;
 using Microsoft.Extensions.DependencyInjection;
-using ResultCrafter.AspNetCore.DependencyInjection;
+using ResultCrafter.AspNetCore;
 using ResultCrafter.AspNetCore.FluentValidation;
 using JsonOptions = Microsoft.AspNetCore.Http.Json.JsonOptions;
 
@@ -107,10 +107,11 @@ public sealed class ValidationFilterTests
         await using var app = BuildEndpointApp(a =>
             a.MapPost("/orders", (CreateOrderRequest req) => Results.Ok(req)).WithValidation<CreateOrderRequest>());
 
-        await app.StartAsync();
+        await app.StartAsync(TestContext.Current.CancellationToken);
         using var client = app.GetTestClient();
 
-        var response = await client.PostAsJsonAsync("/orders", new CreateOrderRequest(null, 0));
+        var response = await client.PostAsJsonAsync("/orders", new CreateOrderRequest(null, 0),
+            TestContext.Current.CancellationToken);
 
         await AssertCamelCaseValidationProblem(response);
     }
@@ -124,10 +125,11 @@ public sealed class ValidationFilterTests
             group.MapPost("/orders", (CreateOrderRequest req) => Results.Ok(req));
         });
 
-        await app.StartAsync();
+        await app.StartAsync(TestContext.Current.CancellationToken);
         using var client = app.GetTestClient();
 
-        var response = await client.PostAsJsonAsync("/group/orders", new CreateOrderRequest(null, 0));
+        var response = await client.PostAsJsonAsync("/group/orders", new CreateOrderRequest(null, 0),
+            TestContext.Current.CancellationToken);
 
         await AssertCamelCaseValidationProblem(response);
     }
@@ -138,10 +140,11 @@ public sealed class ValidationFilterTests
         await using var app = BuildEndpointApp(a =>
             a.MapPost("/orders", (CreateOrderRequest req) => Results.Ok(req)).WithValidation<CreateOrderRequest>());
 
-        await app.StartAsync();
+        await app.StartAsync(TestContext.Current.CancellationToken);
         using var client = app.GetTestClient();
 
-        var response = await client.PostAsJsonAsync("/orders", new CreateOrderRequest("user@example.com", 5));
+        var response = await client.PostAsJsonAsync("/orders", new CreateOrderRequest("user@example.com", 5),
+            TestContext.Current.CancellationToken);
 
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
     }

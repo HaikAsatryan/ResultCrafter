@@ -1,6 +1,6 @@
 ﻿using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
-using ResultCrafter.AspNetCore.Controllers;
+using ResultCrafter.AspNetCore.Mvc;
 
 namespace ResultCrafter.Tests.AspNetCore;
 
@@ -152,6 +152,22 @@ public sealed class ControllerResultAttributesTests
     }
 
     // ════════════════════════════════════════════════════════
+    // ProducesGone / ProducesUnprocessableEntity / ProducesTooManyRequests
+    // ════════════════════════════════════════════════════════
+
+    [Theory]
+    [InlineData(typeof(ProducesGoneAttribute), StatusCodes.Status410Gone)]
+    [InlineData(typeof(ProducesUnprocessableEntityAttribute), StatusCodes.Status422UnprocessableEntity)]
+    [InlineData(typeof(ProducesTooManyRequestsAttribute), StatusCodes.Status429TooManyRequests)]
+    public void NewAttributes_HaveExpectedStatusAndProblemDetailsType(Type attributeType, int expectedStatus)
+    {
+        var attr = (ProducesResponseTypeAttribute)Activator.CreateInstance(attributeType)!;
+
+        Assert.Equal(expectedStatus, attr.StatusCode);
+        Assert.Equal(typeof(ProblemDetails), attr.Type);
+    }
+
+    // ════════════════════════════════════════════════════════
     // All attributes inherit from ProducesResponseTypeAttribute
     // ════════════════════════════════════════════════════════
 
@@ -161,6 +177,9 @@ public sealed class ControllerResultAttributesTests
     [InlineData(typeof(ProducesForbiddenAttribute))]
     [InlineData(typeof(ProducesNotFoundAttribute))]
     [InlineData(typeof(ProducesConflictAttribute))]
+    [InlineData(typeof(ProducesGoneAttribute))]
+    [InlineData(typeof(ProducesUnprocessableEntityAttribute))]
+    [InlineData(typeof(ProducesTooManyRequestsAttribute))]
     public void AllAttributes_InheritFromProducesResponseTypeAttribute(Type attributeType)
     {
         Assert.True(
@@ -178,6 +197,9 @@ public sealed class ControllerResultAttributesTests
     [InlineData(typeof(ProducesForbiddenAttribute))]
     [InlineData(typeof(ProducesNotFoundAttribute))]
     [InlineData(typeof(ProducesConflictAttribute))]
+    [InlineData(typeof(ProducesGoneAttribute))]
+    [InlineData(typeof(ProducesUnprocessableEntityAttribute))]
+    [InlineData(typeof(ProducesTooManyRequestsAttribute))]
     public void AllAttributes_TargetMethods(Type attributeType)
     {
         var usage = attributeType

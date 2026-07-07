@@ -1,6 +1,4 @@
-﻿using ResultCrafter.Core.Primitives;
-
-namespace ResultCrafter.Tests.Core;
+﻿namespace ResultCrafter.Tests.Core;
 
 public sealed class ResultOfTTests
 {
@@ -69,6 +67,15 @@ public sealed class ResultOfTTests
     {
         var result = Result<string>.Created("/api/items/1", "hello");
         Assert.Equal("hello", result.Value);
+    }
+
+    [Theory]
+    [InlineData(null)]
+    [InlineData("")]
+    [InlineData("   ")]
+    public void Created_NullOrWhitespaceLocation_Throws(string? location)
+    {
+        Assert.ThrowsAny<ArgumentException>(() => Result<string>.Created(location!, "hello"));
     }
 
     // ── Accepted ──────────────────────────────────────────────────────────────

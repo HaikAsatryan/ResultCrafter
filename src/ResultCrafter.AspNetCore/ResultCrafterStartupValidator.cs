@@ -1,6 +1,6 @@
 ﻿using Microsoft.Extensions.Hosting;
 
-namespace ResultCrafter.AspNetCore.DependencyInjection;
+namespace ResultCrafter.AspNetCore;
 
 /// <summary>
 ///     Validates that both <c>AddResultCrafter()</c> and <c>UseResultCrafter()</c> were

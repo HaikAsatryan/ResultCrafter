@@ -3,9 +3,8 @@ using Microsoft.AspNetCore.Diagnostics;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.FileProviders;
 using Microsoft.Extensions.Hosting;
-using ResultCrafter.AspNetCore.DependencyInjection;
+using ResultCrafter.AspNetCore;
 using ResultCrafter.AspNetCore.EfCore;
-using ResultCrafter.AspNetCore.ExceptionHandling;
 
 namespace ResultCrafter.Tests.AspNetCore;
 

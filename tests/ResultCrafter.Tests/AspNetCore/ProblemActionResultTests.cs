@@ -3,9 +3,8 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.Abstractions;
 using Microsoft.AspNetCore.Routing;
 using Microsoft.Extensions.DependencyInjection;
-using ResultCrafter.AspNetCore.Controllers;
+using ResultCrafter.AspNetCore.Mvc;
 using ResultCrafter.AspNetCore.ProblemDetails;
-using ResultCrafter.Core.Primitives;
 
 namespace ResultCrafter.Tests.AspNetCore;
 
@@ -313,7 +312,7 @@ public sealed class ProblemActionResultTests
 
     /// <summary>
     ///     Test spy for <see cref="IProblemDetailsService" />. Captures the context passed
-    ///     to <see cref="TryWriteAsync" /> without actually writing an HTTP response.
+    ///     to <see cref="WriteAsync" /> without actually writing an HTTP response.
     /// </summary>
     private sealed class CapturingProblemDetailsService : IProblemDetailsService
     {

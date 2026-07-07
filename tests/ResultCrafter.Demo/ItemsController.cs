@@ -1,6 +1,6 @@
 ﻿using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
-using ResultCrafter.AspNetCore.Controllers;
+using ResultCrafter.AspNetCore.Mvc;
 
 namespace ResultCrafter.Demo;
 

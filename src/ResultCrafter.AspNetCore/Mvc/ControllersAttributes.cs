@@ -1,7 +1,7 @@
 ﻿using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 
-namespace ResultCrafter.AspNetCore.Controllers;
+namespace ResultCrafter.AspNetCore.Mvc;
 
 /// <summary>
 ///     Documents a <c>400 Bad Request</c> ProblemDetails response in the OpenAPI schema.
@@ -47,3 +47,30 @@ public sealed class ProducesNotFoundAttribute()
 [AttributeUsage(AttributeTargets.Method, AllowMultiple = true)]
 public sealed class ProducesConflictAttribute()
     : ProducesResponseTypeAttribute<Microsoft.AspNetCore.Mvc.ProblemDetails>(StatusCodes.Status409Conflict);
+
+/// <summary>
+///     Documents a <c>410 Gone</c> ProblemDetails response in the OpenAPI schema.
+///     Apply to controller actions that may return a <see cref="ProblemActionResult" />
+///     from <c>Error.Gone</c>.
+/// </summary>
+[AttributeUsage(AttributeTargets.Method, AllowMultiple = true)]
+public sealed class ProducesGoneAttribute()
+    : ProducesResponseTypeAttribute<Microsoft.AspNetCore.Mvc.ProblemDetails>(StatusCodes.Status410Gone);
+
+/// <summary>
+///     Documents a <c>422 Unprocessable Entity</c> ProblemDetails response in the OpenAPI schema.
+///     Apply to controller actions that may return a <see cref="ProblemActionResult" />
+///     from <c>Error.UnprocessableEntity</c>.
+/// </summary>
+[AttributeUsage(AttributeTargets.Method, AllowMultiple = true)]
+public sealed class ProducesUnprocessableEntityAttribute()
+    : ProducesResponseTypeAttribute<Microsoft.AspNetCore.Mvc.ProblemDetails>(StatusCodes.Status422UnprocessableEntity);
+
+/// <summary>
+///     Documents a <c>429 Too Many Requests</c> ProblemDetails response in the OpenAPI schema.
+///     Apply to controller actions that may return a <see cref="ProblemActionResult" />
+///     from <c>Error.TooManyRequests</c>.
+/// </summary>
+[AttributeUsage(AttributeTargets.Method, AllowMultiple = true)]
+public sealed class ProducesTooManyRequestsAttribute()
+    : ProducesResponseTypeAttribute<Microsoft.AspNetCore.Mvc.ProblemDetails>(StatusCodes.Status429TooManyRequests);

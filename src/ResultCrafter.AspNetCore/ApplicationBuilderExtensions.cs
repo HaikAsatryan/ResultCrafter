@@ -1,7 +1,7 @@
 ﻿using Microsoft.AspNetCore.Builder;
 using Microsoft.Extensions.DependencyInjection;
 
-namespace ResultCrafter.AspNetCore.DependencyInjection;
+namespace ResultCrafter.AspNetCore;
 
 /// <summary>
 ///     Extension methods for configuring the ResultCrafter middleware pipeline.
@@ -13,7 +13,7 @@ public static class ApplicationBuilderExtensions
     ///     <list type="bullet">
     ///         <item>
     ///             <c>UseExceptionHandler</c> — catches unhandled exceptions and maps them to
-    ///             RFC 9457 ProblemDetails via <see cref="ExceptionHandling.ResultCrafterExceptionHandler" />.
+    ///             RFC 9457 ProblemDetails via <see cref="ResultCrafterExceptionHandler" />.
     ///         </item>
     ///         <item>
     ///             <c>UseStatusCodePages</c> — converts bare non-success status codes

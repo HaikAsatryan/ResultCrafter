@@ -1,5 +1,4 @@
 ﻿using FluentValidation;
-using ResultCrafter.Core.Primitives;
 
 namespace ResultCrafter.FluentValidation;
 

@@ -1,5 +1,4 @@
-﻿using FluentValidation;
-using ResultCrafter.Core.Primitives;
+using FluentValidation;
 using ResultCrafter.FluentValidation;
 
 namespace ResultCrafter.Tests.FluentValidation;
@@ -15,7 +14,7 @@ public sealed class ValidatorExtensionsTests
     {
         var request = new CreateOrderRequest("user@example.com", 5);
 
-        var error = await _validator.ValidateToResultAsync(request);
+        var error = await _validator.ValidateToResultAsync(request, TestContext.Current.CancellationToken);
 
         Assert.Null(error);
     }
@@ -27,7 +26,7 @@ public sealed class ValidatorExtensionsTests
     {
         var request = new CreateOrderRequest(null, 0);
 
-        var error = await _validator.ValidateToResultAsync(request);
+        var error = await _validator.ValidateToResultAsync(request, TestContext.Current.CancellationToken);
 
         Assert.NotNull(error);
     }
@@ -37,7 +36,7 @@ public sealed class ValidatorExtensionsTests
     {
         var request = new CreateOrderRequest(null, 0);
 
-        var error = await _validator.ValidateToResultAsync(request);
+        var error = await _validator.ValidateToResultAsync(request, TestContext.Current.CancellationToken);
 
         Assert.Equal(ErrorType.BadRequest, error!.Value.Type);
     }
@@ -47,7 +46,7 @@ public sealed class ValidatorExtensionsTests
     {
         var request = new CreateOrderRequest(null, 0);
 
-        var error = await _validator.ValidateToResultAsync(request);
+        var error = await _validator.ValidateToResultAsync(request, TestContext.Current.CancellationToken);
 
         Assert.True(error!.Value.IsValidation);
     }
@@ -59,7 +58,7 @@ public sealed class ValidatorExtensionsTests
     {
         var request = new CreateOrderRequest("user@example.com", 0); // only Quantity fails
 
-        var error = await _validator.ValidateToResultAsync(request);
+        var error = await _validator.ValidateToResultAsync(request, TestContext.Current.CancellationToken);
 
         Assert.NotNull(error!.Value.Errors);
         Assert.True(error.Value.Errors!.ContainsKey("Quantity"));
@@ -70,7 +69,7 @@ public sealed class ValidatorExtensionsTests
     {
         var request = new CreateOrderRequest(null, 0); // both fail
 
-        var error = await _validator.ValidateToResultAsync(request);
+        var error = await _validator.ValidateToResultAsync(request, TestContext.Current.CancellationToken);
 
         Assert.NotNull(error!.Value.Errors);
         Assert.True(error.Value.Errors!.ContainsKey("CustomerEmail"));
@@ -84,7 +83,7 @@ public sealed class ValidatorExtensionsTests
     {
         var request = new CreateOrderRequest(null, 5); // only email fails
 
-        var error = await _validator.ValidateToResultAsync(request);
+        var error = await _validator.ValidateToResultAsync(request, TestContext.Current.CancellationToken);
 
         var messages = error!.Value.Errors!["CustomerEmail"];
         Assert.Contains("Email is required.", messages);
@@ -96,7 +95,7 @@ public sealed class ValidatorExtensionsTests
         // "not-an-email" passes NotEmpty but fails EmailAddress
         var request = new CreateOrderRequest("not-an-email", 5);
 
-        var error = await _validator.ValidateToResultAsync(request);
+        var error = await _validator.ValidateToResultAsync(request, TestContext.Current.CancellationToken);
 
         var messages = error!.Value.Errors!["CustomerEmail"];
         Assert.Contains("Email must be a valid address.", messages);

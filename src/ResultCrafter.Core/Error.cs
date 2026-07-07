@@ -1,6 +1,6 @@
 using System.Collections.ObjectModel;
 
-namespace ResultCrafter.Core.Primitives;
+namespace ResultCrafter;
 
 /// <summary>
 ///     An immutable, typed error value. Carry one through a <see cref="Result{T}" /> or
@@ -78,6 +78,27 @@ public readonly struct Error : IEquatable<Error>
         return new Error(ErrorType.ConcurrencyConflict, detail, null);
     }
 
+    /// <summary>Creates a <see cref="ErrorType.Gone" /> error (HTTP 410).</summary>
+    /// <param name="detail">Optional human-readable description. Falls back to a catalog default when <see langword="null" />.</param>
+    public static Error Gone(string? detail = null)
+    {
+        return new Error(ErrorType.Gone, detail, null);
+    }
+
+    /// <summary>Creates an <see cref="ErrorType.UnprocessableEntity" /> error (HTTP 422).</summary>
+    /// <param name="detail">Optional human-readable description. Falls back to a catalog default when <see langword="null" />.</param>
+    public static Error UnprocessableEntity(string? detail = null)
+    {
+        return new Error(ErrorType.UnprocessableEntity, detail, null);
+    }
+
+    /// <summary>Creates a <see cref="ErrorType.TooManyRequests" /> error (HTTP 429).</summary>
+    /// <param name="detail">Optional human-readable description. Falls back to a catalog default when <see langword="null" />.</param>
+    public static Error TooManyRequests(string? detail = null)
+    {
+        return new Error(ErrorType.TooManyRequests, detail, null);
+    }
+
     // ── BadRequest ────────────────────────────────────────────────────────────
 
     /// <summary>
@@ -102,7 +123,8 @@ public readonly struct Error : IEquatable<Error>
     /// <param name="detail">Optional prose summary. Falls back to a catalog default when <see langword="null" />.</param>
     /// <exception cref="ArgumentNullException">Thrown when <paramref name="errors" /> is <see langword="null" />.</exception>
     /// <exception cref="ArgumentException">
-    ///     Thrown when <paramref name="errors" /> is empty or contains a null/whitespace key.
+    ///     Thrown when <paramref name="errors" /> is empty, contains a null/whitespace key, or maps
+    ///     a key to a null message array.
     /// </exception>
     public static Error BadRequest(Dictionary<string, string[]> errors, string? detail = null)
     {
@@ -117,8 +139,13 @@ public readonly struct Error : IEquatable<Error>
         foreach (var (key, value) in errors)
         {
             ArgumentException.ThrowIfNullOrWhiteSpace(key);
-            // Clone array so caller can't mutate after creating Error.
-            copy[key] = value.Length == 0 ? [] : (string[])value.Clone();
+            if (value is null)
+                throw new ArgumentException($"Field '{key}' maps to a null message array.", nameof(errors));
+            // Clone array so caller can't mutate after creating Error. Source keys differing
+            // only by case collapse onto one entry here; merge their messages rather than
+            // silently overwriting the earlier ones.
+            var cloned = value.Length == 0 ? [] : (string[])value.Clone();
+            copy[key] = copy.TryGetValue(key, out var existing) ? [.. existing, .. cloned] : cloned;
         }
 
         return new Error(ErrorType.BadRequest, detail, new ReadOnlyDictionary<string, string[]>(copy));

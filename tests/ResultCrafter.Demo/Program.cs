@@ -1,4 +1,4 @@
-using ResultCrafter.AspNetCore.DependencyInjection;
+using ResultCrafter.AspNetCore;
 using ResultCrafter.AspNetCore.EfCore;
 using ResultCrafter.AspNetCore.FluentValidation;
 using ResultCrafter.Demo;
@@ -40,6 +40,11 @@ app.MapGet("/", () => Results.Redirect("/scalar"));
 app.MapGroup("/api")
     .WithTags("Items")
     .MapDemoEndpoints();
+
+// MediatR + FluentValidation pipeline demo endpoints
+app.MapGroup("/api/mediatr")
+    .WithTags("MediatR Items")
+    .MapMediatRDemoEndpoints();
 
 app.MapControllers();
 

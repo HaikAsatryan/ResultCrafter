@@ -1,7 +1,7 @@
 ﻿using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
 
-namespace ResultCrafter.AspNetCore.Endpoints;
+namespace ResultCrafter.AspNetCore;
 
 /// <summary>
 ///     Convenience extensions for documenting ResultCrafter error responses in OpenAPI.
@@ -41,5 +41,23 @@ public static class RouteHandlerBuilderExtensions
     public static RouteHandlerBuilder ProducesConflict(this RouteHandlerBuilder builder)
     {
         return builder.ProducesProblem(StatusCodes.Status409Conflict);
+    }
+
+    /// <summary>Documents a <c>410 Gone</c> ProblemDetails response.</summary>
+    public static RouteHandlerBuilder ProducesGone(this RouteHandlerBuilder builder)
+    {
+        return builder.ProducesProblem(StatusCodes.Status410Gone);
+    }
+
+    /// <summary>Documents a <c>422 Unprocessable Entity</c> ProblemDetails response.</summary>
+    public static RouteHandlerBuilder ProducesUnprocessableEntity(this RouteHandlerBuilder builder)
+    {
+        return builder.ProducesProblem(StatusCodes.Status422UnprocessableEntity);
+    }
+
+    /// <summary>Documents a <c>429 Too Many Requests</c> ProblemDetails response.</summary>
+    public static RouteHandlerBuilder ProducesTooManyRequests(this RouteHandlerBuilder builder)
+    {
+        return builder.ProducesProblem(StatusCodes.Status429TooManyRequests);
     }
 }

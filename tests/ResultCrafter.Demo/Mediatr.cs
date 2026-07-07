@@ -1,6 +1,5 @@
 ﻿using FluentValidation;
 using MediatR;
-using ResultCrafter.Core.Primitives;
 
 namespace ResultCrafter.Demo;
 

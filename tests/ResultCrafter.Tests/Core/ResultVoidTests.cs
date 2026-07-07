@@ -1,6 +1,4 @@
-﻿using ResultCrafter.Core.Primitives;
-
-namespace ResultCrafter.Tests.Core;
+﻿namespace ResultCrafter.Tests.Core;
 
 public sealed class ResultVoidTests
 {

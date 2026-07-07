@@ -13,7 +13,7 @@ public static class ProblemDetailsKeys
     public const string RcMarker = "x-rc";
 
     /// <summary>
-    ///     Extension key carrying the <see cref="ResultCrafter.Core.Primitives.ErrorType" />
+    ///     Extension key carrying the <see cref="ResultCrafter.ErrorType" />
     ///     string. Useful for custom middleware that needs to branch on error type.
     ///     Stripped before the response body is written to the client.
     /// </summary>
@@ -21,7 +21,7 @@ public static class ProblemDetailsKeys
 
     /// <summary>
     ///     Extension key for the structured field-errors dictionary on
-    ///     <see cref="ResultCrafter.Core.Primitives.Error" /> instances that carry validation
+    ///     <see cref="ResultCrafter.Error" /> instances that carry validation
     ///     errors. Serialised into the response body under the top-level <c>errors</c> key,
     ///     matching the shape produced by ASP.NET Core's built-in model validation responses.
     /// </summary>

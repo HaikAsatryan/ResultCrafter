@@ -1,6 +1,5 @@
 ﻿using Microsoft.AspNetCore.Mvc;
-using ResultCrafter.AspNetCore.Controllers;
-using ResultCrafter.Core.Primitives;
+using ResultCrafter.AspNetCore.Mvc;
 
 namespace ResultCrafter.Tests.AspNetCore;
 
@@ -28,12 +27,10 @@ public sealed class ControllerResultExtensionsTests
     }
 
     [Fact]
-    public void ToOkResult_SuccessWithNullValue_ReturnsOkObjectResultWithNull()
+    public void Ok_NullValue_ThrowsArgumentNullException()
     {
-        var result = Result<string?>.Ok(null);
-        var action = result.ToOkResult();
-        var ok = Assert.IsType<OkObjectResult>(action.Result);
-        Assert.Null(ok.Value);
+        // 2.0 contract: success factories reject null; use the void Result for value-less success.
+        Assert.Throws<ArgumentNullException>(() => Result<string?>.Ok(null));
     }
 
     [Fact]

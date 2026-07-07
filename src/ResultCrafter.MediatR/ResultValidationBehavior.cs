@@ -2,7 +2,6 @@
 using FluentValidation;
 using FluentValidation.Results;
 using MediatR;
-using ResultCrafter.Core.Primitives;
 
 namespace ResultCrafter.MediatR;
 
@@ -78,11 +77,14 @@ public sealed class ResultValidationBehavior<TRequest, TResponse>(IEnumerable<IV
     {
         if (validators.Length == 0) return null;
 
-        var context = new ValidationContext<TRequest>(request);
         var failures = new List<ValidationFailure>();
 
         foreach (var validator in validators)
         {
+            // Fresh context per validator: FluentValidation accumulates failures on a shared
+            // ValidationContext, so reusing one would re-report earlier validators' failures
+            // in every subsequent result.
+            var context = new ValidationContext<TRequest>(request);
             var result = await validator.ValidateAsync(context, ct);
             if (!result.IsValid) failures.AddRange(result.Errors);
         }
@@ -96,6 +98,8 @@ public sealed class ResultValidationBehavior<TRequest, TResponse>(IEnumerable<IV
             .ToDictionary(
                 g => g.Key,
                 g => g.Select(f => f.ErrorMessage)
+                    .Where(m => !string.IsNullOrWhiteSpace(m))
+                    .Distinct(StringComparer.Ordinal)
                     .ToArray(),
                 StringComparer.OrdinalIgnoreCase);
 

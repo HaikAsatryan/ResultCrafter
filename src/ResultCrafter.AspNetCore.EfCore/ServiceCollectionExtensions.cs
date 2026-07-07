@@ -1,6 +1,5 @@
 ﻿using Microsoft.AspNetCore.Diagnostics;
 using Microsoft.Extensions.DependencyInjection;
-using ResultCrafter.AspNetCore.ExceptionHandling;
 
 namespace ResultCrafter.AspNetCore.EfCore;
 
@@ -13,7 +12,7 @@ public static class ServiceCollectionExtensions
     ///     Registers the ResultCrafter EF Core integration.
     ///     Intercepts <see cref="Microsoft.EntityFrameworkCore.DbUpdateConcurrencyException" />
     ///     and maps it to a <c>409 ConcurrencyConflict</c> ProblemDetails response.
-    ///     Must be called after <see cref="DependencyInjection.ServiceCollectionExtensions.AddResultCrafter" />.
+    ///     Must be called after <see cref="ResultCrafter.AspNetCore.ServiceCollectionExtensions.AddResultCrafter" />.
     /// </summary>
     public static IServiceCollection AddResultCrafterEfCore(this IServiceCollection services)
     {

@@ -1,6 +1,6 @@
 ﻿using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
-using ResultCrafter.AspNetCore.Endpoints;
+using ResultCrafter.AspNetCore;
 using ResultCrafter.AspNetCore.FluentValidation;
 
 namespace ResultCrafter.Demo;

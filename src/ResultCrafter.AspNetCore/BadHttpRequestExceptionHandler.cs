@@ -4,7 +4,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using ResultCrafter.AspNetCore.ProblemDetails;
 
-namespace ResultCrafter.AspNetCore.ExceptionHandling;
+namespace ResultCrafter.AspNetCore;
 
 /// <summary>
 ///     Intercepts <see cref="BadHttpRequestException" /> and maps it to an RFC 9457

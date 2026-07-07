@@ -8,8 +8,11 @@
 
   <ItemGroup>
     <PackageReference Include="FluentValidation.DependencyInjectionExtensions" Version="12.1.1"/>
-    <PackageReference Include="Microsoft.AspNetCore.OpenApi" Version="10.0.3"/>
-    <PackageReference Include="Scalar.AspNetCore" Version="2.12.47"/>
+    <PackageReference Include="Microsoft.AspNetCore.OpenApi" Version="10.0.9"/>
+    <!-- Direct pin: lifts the vulnerable Microsoft.OpenApi 2.0.0 floor pulled in
+         transitively by Microsoft.AspNetCore.OpenApi (GHSA-v5pm-xwqc-g5wc). -->
+    <PackageReference Include="Microsoft.OpenApi" Version="2.9.0"/>
+    <PackageReference Include="Scalar.AspNetCore" Version="2.16.10"/>
   </ItemGroup>
 
   <ItemGroup>

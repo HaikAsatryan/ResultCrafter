@@ -4,10 +4,9 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
-using ResultCrafter.AspNetCore.Options;
 using ResultCrafter.AspNetCore.ProblemDetails;
 
-namespace ResultCrafter.AspNetCore.ExceptionHandling;
+namespace ResultCrafter.AspNetCore;
 
 /// <inheritdoc />
 public sealed class ResultCrafterExceptionHandler(
@@ -84,7 +83,9 @@ public sealed class ResultCrafterExceptionHandler(
     /// </summary>
     private static bool ComputeIsNonProd(IHostEnvironment env)
     {
-        if (env.IsDevelopment()) return true;
+        // IsStaging() covers the standard "Staging" name, which the substring list below
+        // does not ("Staging" does not contain "stage").
+        if (env.IsDevelopment() || env.IsStaging()) return true;
 
         var name = env.EnvironmentName;
         if (name.Length == 0) return false;

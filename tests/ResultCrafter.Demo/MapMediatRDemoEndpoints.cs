@@ -1,5 +1,5 @@
 ﻿using MediatR;
-using ResultCrafter.AspNetCore.Endpoints;
+using ResultCrafter.AspNetCore;
 
 namespace ResultCrafter.Demo;
 
