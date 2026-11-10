@@ -3,9 +3,9 @@
        visible here (a PropertyGroup condition in Directory.Build.props would not see them). -->
   <PropertyGroup Condition="'$(IsPackable)' == 'true'">
     <EnablePackageValidation>true</EnablePackageValidation>
-    <!-- 3.0.0 is an intentional breaking release, so no baseline comparison against 2.x.
-         After 3.0.0 ships, set <PackageValidationBaselineVersion>3.0.0</PackageValidationBaselineVersion>
-         here so later releases are validated against it. -->
+    <!-- Pack fails if a release breaks the public API of 3.0.0. A package that does not exist at 3.0.0 yet must
+         clear this in its own csproj until its first release, or pack cannot find the baseline. -->
+    <PackageValidationBaselineVersion>3.0.0</PackageValidationBaselineVersion>
     <IsAotCompatible Condition="'$(IsAotCompatible)' == ''">true</IsAotCompatible>
   </PropertyGroup>
 </Project>
