@@ -8,7 +8,16 @@ using ResultCrafter.AspNetCore.ProblemDetails;
 
 namespace ResultCrafter.AspNetCore;
 
-/// <inheritdoc />
+/// <summary>
+///     The catch-all <see cref="IExceptionHandler" /> that <c>AddResultCrafter()</c> registers. It logs the
+///     exception at Error and writes a 500 ProblemDetails, or the status the app's
+///     <c>ExceptionHandlerOptions.StatusCodeSelector</c> chose. Exception details are included according to
+///     <see cref="ResultCrafterOptions.ExceptionDetailMode" />.
+/// </summary>
+/// <remarks>
+///     It handles every exception that reaches it, so register your own handlers before <c>AddResultCrafter()</c>.
+///     The type is public so other handlers can be ordered around it, as <c>AddResultCrafterEfCore()</c> does.
+/// </remarks>
 public sealed class ResultCrafterExceptionHandler(
     ILogger<ResultCrafterExceptionHandler> logger,
     IOptions<ResultCrafterOptions> options,
@@ -44,8 +53,15 @@ public sealed class ResultCrafterExceptionHandler(
             _ => _includeDetailsByDefault
         };
 
-        const int status = StatusCodes.Status500InternalServerError;
-        const string title = "internal_server_error";
+        // The exception-handler middleware already set the status: 500, or what the app's
+        // ExceptionHandlerOptions.StatusCodeSelector chose. Body and transport must agree.
+        var status = httpContext.Response.StatusCode >= StatusCodes.Status400BadRequest
+            ? httpContext.Response.StatusCode
+            : StatusCodes.Status500InternalServerError;
+        httpContext.Response.StatusCode = status;
+
+        // The house title for a 500; any other status gets the catalog title (4xx) or the framework one.
+        var title = status == StatusCodes.Status500InternalServerError ? "internal_server_error" : null;
 
         // Log before writing the response so the entry appears even if TryWriteAsync fails.
         ResultCrafterLogger.LogUnhandledException(
@@ -88,8 +104,6 @@ public sealed class ResultCrafterExceptionHandler(
         if (env.IsDevelopment() || env.IsStaging()) return true;
 
         var name = env.EnvironmentName;
-        if (name.Length == 0) return false;
-
         return name.Contains("dev", StringComparison.OrdinalIgnoreCase)
                || name.Contains("local", StringComparison.OrdinalIgnoreCase)
                || name.Contains("test", StringComparison.OrdinalIgnoreCase)

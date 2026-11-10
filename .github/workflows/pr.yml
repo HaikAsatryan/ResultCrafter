@@ -1,12 +1,8 @@
 name: Pull Request Validation
 
 on:
-  push:
-    branches:
-      - dev
   pull_request:
     branches:
-      - dev
       - main
 
 permissions:
@@ -24,13 +20,12 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v7
 
+      # global.json pins the .NET 11 SDK; 10.0.x adds the .NET 10 runtime the net10.0 tests run on.
       - name: Setup .NET
-        uses: actions/setup-dotnet@v5
+        uses: actions/setup-dotnet@v6
         with:
           global-json-file: global.json
-          dotnet-version: |
-            8.0.x
-            9.0.x
+          dotnet-version: 10.0.x
 
       - name: Restore
         run: dotnet restore
@@ -38,5 +33,25 @@ jobs:
       - name: Build
         run: dotnet build --no-restore --configuration Release -warnaserror
 
-      - name: Test
+      - name: Test (net10.0 and net11.0)
         run: dotnet test --no-build --configuration Release --verbosity normal
+
+  aot-smoke:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v6
+        with:
+          global-json-file: global.json
+          dotnet-version: 10.0.x
+
+      # NativeAOT on Ubuntu needs clang. GitHub's Ubuntu images ship it; install only if missing.
+      - name: NativeAOT prerequisites
+        run: command -v clang >/dev/null || (sudo apt-get update && sudo apt-get install -y clang)
+
+      - name: NativeAOT publish and smoke test (net10.0 and net11.0)
+        run: bash tests/ResultCrafter.AotSmoke/run-aot-smoke.sh

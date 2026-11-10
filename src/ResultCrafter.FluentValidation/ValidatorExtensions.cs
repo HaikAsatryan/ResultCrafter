@@ -1,4 +1,4 @@
-﻿using FluentValidation;
+using FluentValidation;
 
 namespace ResultCrafter.FluentValidation;
 
@@ -9,7 +9,7 @@ public static class ValidatorExtensions
 {
     /// <summary>
     ///     Validates <paramref name="instance" /> and returns <see langword="null" /> on success,
-    ///     or an <see cref="Error.BadRequest(Dictionary{string,string[]},string?)" /> with
+    ///     or an <see cref="Error.BadRequest(IReadOnlyDictionary{string,string[]},string?)" /> with
     ///     field-level errors keyed by FluentValidation's property name on failure.
     /// </summary>
     /// <remarks>
@@ -20,9 +20,9 @@ public static class ValidatorExtensions
     /// </remarks>
     public static async Task<Error?> ValidateToResultAsync<T>(this IValidator<T> validator,
         T instance,
-        CancellationToken ct = default)
+        CancellationToken cancellationToken = default)
     {
-        var result = await validator.ValidateAsync(instance, ct);
+        var result = await validator.ValidateAsync(instance, cancellationToken);
         if (result.IsValid) return null;
 
         var errors = result.Errors

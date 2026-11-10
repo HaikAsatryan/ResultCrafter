@@ -1,0 +1,17 @@
+{
+  "$schema": "https://context7.com/schema/context7.json",
+  "projectTitle": "ResultCrafter",
+  "description": "Result pattern for ASP.NET Core (.NET 10+). Services return Result<T>, Result or Error; one call at the endpoint turns it into a typed success response or an RFC 9457 ProblemDetails error. Minimal API first, MVC supported, NativeAOT-safe. Packages: ResultCrafter.Core, ResultCrafter.AspNetCore, ResultCrafter.AspNetCore.EfCore, ResultCrafter.FluentValidation, ResultCrafter.AspNetCore.FluentValidation.",
+  "branch": "main",
+  "folders": ["docs", "src"],
+  "excludeFolders": ["tests", "assets", ".github", ".claude"],
+  "excludeFiles": ["CLAUDE.md", "CODE_OF_CONDUCT.md"],
+  "rules": [
+    "Register once in Program.cs: builder.Services.AddResultCrafter() and app.UseResultCrafter().",
+    "Services return Result<T>, Result or Error. Endpoints map them with ToOkResult(), ToCreatedResult(), ToAcceptedResult(), ToNoContentResult() or ToProblemResult(). Never return a Result, Result<T> or Error from an endpoint without mapping it.",
+    "Create results only through the factories (Result<T>.Ok, Created, Accepted; Result.NoContent, Accepted; Error.NotFound, Conflict, BadRequest and the rest) or the implicit conversions. Never use default(Result<T>) or default(Result).",
+    "The To*Result method must match how the result was created: a Created result needs ToCreatedResult(). A mismatch throws InvalidOperationException.",
+    "Declare error responses for OpenAPI with .ProducesNotFound(), .ProducesBadRequest() and the other Produces* extensions on Minimal API endpoints, or the [ProducesNotFound] style attributes on controllers.",
+    "Error.With(key, value) accepts only string, int, long, bool, double, decimal, Guid, DateTimeOffset, DateTime or string[] values."
+  ]
+}

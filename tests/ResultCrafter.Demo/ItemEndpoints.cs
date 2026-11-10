@@ -1,4 +1,4 @@
-﻿using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using ResultCrafter.AspNetCore;
 using ResultCrafter.AspNetCore.FluentValidation;
@@ -17,7 +17,7 @@ public static class DemoEndpoints
                 async (int id, ItemService svc, CancellationToken ct) =>
                     (await svc.GetAsync(id, ct)).ToOkResult())
             .WithName("GetItem")
-            .WithSummary("Get item by ID — Ok or NotFound")
+            .WithSummary("Get item by ID: Ok or NotFound")
             .ProducesNotFound();
 
         // Success: 201 Created<ItemDto>
@@ -30,7 +30,7 @@ public static class DemoEndpoints
                     (await svc.CreateAsync(req, ct)).ToCreatedResult())
             .WithValidation<CreateItemRequest>()
             .WithName("CreateItem")
-            .WithSummary("Create item — Created or BadRequest");
+            .WithSummary("Create item: Created or BadRequest");
 
         // Success: 200 Ok<ItemDto>
         // Error:   404 NotFound | 400 BadRequest (field errors) | 409 Conflict | 409 ConcurrencyConflict
@@ -38,7 +38,7 @@ public static class DemoEndpoints
                 async (int id, UpdateItemRequest req, ItemService svc, CancellationToken ct) =>
                     (await svc.UpdateAsync(id, req, ct)).ToOkResult())
             .WithName("UpdateItem")
-            .WithSummary("Update item — Ok, NotFound, BadRequest, Conflict, or ConcurrencyConflict")
+            .WithSummary("Update item: Ok, NotFound, BadRequest, Conflict, or ConcurrencyConflict")
             .ProducesNotFound()
             .ProducesBadRequest()
             .ProducesConflict();
@@ -49,7 +49,7 @@ public static class DemoEndpoints
                 async (int id, ItemService svc, CancellationToken ct) =>
                     (await svc.DeleteAsync(id, ct)).ToNoContentResult())
             .WithName("DeleteItem")
-            .WithSummary("Delete item — NoContent or NotFound")
+            .WithSummary("Delete item: NoContent or NotFound")
             .ProducesNotFound();
 
         // ── Async / queue operations ──────────────────────────────────────────
@@ -60,23 +60,23 @@ public static class DemoEndpoints
                 async (int id, ItemService svc, CancellationToken ct) =>
                     (await svc.ReserveAsync(id, ct)).ToAcceptedResult())
             .WithName("ReserveItem")
-            .WithSummary("Reserve item — Accepted<ItemDto>, NotFound, or Forbidden")
+            .WithSummary("Reserve item: Accepted<ItemDto>, NotFound, or Forbidden")
             .ProducesNotFound()
             .ProducesForbidden();
 
-        // Success: 202 Accepted  (no body — deletion is queued)
+        // Success: 202 Accepted  (no body; deletion is queued)
         // Error:   400 BadRequest with plain detail  (empty list)
         //          400 BadRequest with errors dict   (invalid IDs / too many)
         api.MapPost("/items/bulk-delete",
                 async (BulkDeleteRequest req, ItemService svc, CancellationToken ct) =>
                     (await svc.BulkDeleteAsync(req, ct)).ToAcceptedResult())
             .WithName("BulkDeleteItems")
-            .WithSummary("Queue bulk deletion — Accepted (void), or BadRequest (plain or with errors)")
+            .WithSummary("Queue bulk deletion: Accepted (void), or BadRequest (plain or with errors)")
             .ProducesBadRequest();
 
         // ── Auth-gated endpoint ───────────────────────────────────────────────
 
-        // Success: 200 Ok<IReadOnlyList<ItemDto>>
+        // Success: 200 Ok<List<ItemDto>>
         // Error:   401 Unauthorized (missing key) | 403 Forbidden (wrong role)
         //
         // Pass headers:  X-Api-Key: any-value   X-Role: admin
@@ -87,9 +87,22 @@ public static class DemoEndpoints
                         CancellationToken ct) =>
                     (await svc.GetAllAdminAsync(apiKey, role, ct)).ToOkResult())
             .WithName("AdminListItems")
-            .WithSummary("Admin list — Ok, Unauthorized (missing key), or Forbidden (non-admin role)")
+            .WithSummary("Admin list: Ok, Unauthorized (missing key), or Forbidden (non-admin role)")
             .ProducesUnauthorized()
             .ProducesForbidden();
+
+        // ── Rate limit ────────────────────────────────────────────────────────
+
+        // Error: 429 TooManyRequests with a Retry-After: 30 header and extra "limit" and "window"
+        // members in the body, added with Error.With().
+        api.MapGet("/items/limited",
+                () => Error.TooManyRequests("Rate limit exceeded.", TimeSpan.FromSeconds(30))
+                    .With("limit", 100)
+                    .With("window", "1m")
+                    .ToProblemResult())
+            .WithName("RateLimited")
+            .WithSummary("Always rate-limited: 429 with Retry-After and extension members")
+            .ProducesTooManyRequests();
 
         // ── Exception / crash demos ───────────────────────────────────────────
 
@@ -100,10 +113,10 @@ public static class DemoEndpoints
                 (ItemService _) =>
                 {
                     throw new InvalidOperationException(
-                        "Simulated unhandled exception — watch the logs.");
+                        "Simulated unhandled exception: watch the logs.");
                 })
             .WithName("CrashEndpoint")
-            .WithSummary("Throws an unhandled exception — demonstrates the 500 IExceptionHandler path");
+            .WithSummary("Throws an unhandled exception: demonstrates the 500 IExceptionHandler path");
 
         // Deliberately throws DbUpdateConcurrencyException to demonstrate the EF Core
         // integration intercepting it as a 409 before the generic 500 handler sees it.
@@ -111,11 +124,11 @@ public static class DemoEndpoints
                 (ItemService _) =>
                 {
                     throw new DbUpdateConcurrencyException(
-                        "Simulated EF Core concurrency conflict — intercepted as 409 by ResultCrafterEfCore.",
+                        "Simulated EF Core concurrency conflict: intercepted as 409 by ResultCrafterEfCore.",
                         []);
                 })
             .WithName("DbCrashEndpoint")
-            .WithSummary("Throws DbUpdateConcurrencyException — demonstrates the 409 EF Core handler");
+            .WithSummary("Throws DbUpdateConcurrencyException: demonstrates the 409 EF Core handler");
 
         return api;
     }

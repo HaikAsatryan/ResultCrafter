@@ -1,4 +1,4 @@
-﻿<Project Sdk="Microsoft.NET.Sdk">
+<Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
     <Description>FluentValidation bridge for ResultCrafter. Converts validation failures to Error.BadRequest with structured field-error dictionaries.</Description>
@@ -6,7 +6,7 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <PackageReference Include="FluentValidation" Version="12.1.1"/>
+    <PackageReference Include="FluentValidation" Version="12.2.0"/>
   </ItemGroup>
 
   <ItemGroup>

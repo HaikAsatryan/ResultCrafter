@@ -1,5 +1,6 @@
-﻿using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Mvc.Infrastructure;
 using Microsoft.Extensions.DependencyInjection;
 using ResultCrafter.AspNetCore.ProblemDetails;
 
@@ -17,28 +18,32 @@ namespace ResultCrafter.AspNetCore.Mvc;
 ///         path. Application code typically does not instantiate it directly.
 ///     </para>
 ///     <para>
-///         <see cref="ExecuteResultAsync" /> calls
-///         <see cref="IProblemDetailsService.WriteAsync" />, which is guaranteed to succeed
-///         because <c>AddResultCrafter()</c> always registers <c>AddProblemDetails()</c> and
-///         therefore always provides a capable <see cref="IProblemDetailsWriter" />. If no
-///         writer could handle the context, <c>WriteAsync</c> throws
-///         <see cref="InvalidOperationException" /> — the same failure mode as any
-///         misconfigured ASP.NET Core ProblemDetails setup.
+///         <see cref="ExecuteResultAsync" /> calls <see cref="IProblemDetailsService.WriteAsync" />.
+///         <c>AddResultCrafter()</c> registers an <see cref="IProblemDetailsWriter" /> first in line that
+///         takes every ResultCrafter problem, so the body is the house shape whatever the order of
+///         <c>AddControllers()</c> and <c>AddResultCrafter()</c> and whatever the <c>Accept</c> header. Without
+///         <c>AddResultCrafter()</c>, <c>WriteAsync</c> throws <see cref="InvalidOperationException" /> when no
+///         writer can handle the context.
 ///     </para>
 /// </remarks>
-public sealed class ProblemActionResult : ActionResult
+public sealed class ProblemActionResult : ActionResult, IStatusCodeActionResult
 {
     /// <summary>
     ///     Initializes a new instance of <see cref="ProblemActionResult" />.
     /// </summary>
     /// <param name="error">The <see cref="Error" /> to convert into a ProblemDetails response.</param>
+    /// <exception cref="ArgumentNullException">Thrown when <paramref name="error" /> is <see langword="null" />.</exception>
     public ProblemActionResult(Error error)
     {
+        ArgumentNullException.ThrowIfNull(error);
         Error = error;
     }
 
     /// <summary>The <see cref="Error" /> this result was constructed from.</summary>
     public Error Error { get; }
+
+    /// <summary>The HTTP status code the error maps to, so MVC filters and middleware can read it.</summary>
+    public int? StatusCode => HttpErrorCatalog.Status(Error.Type);
 
     /// <inheritdoc />
     public override async Task ExecuteResultAsync(ActionContext context)

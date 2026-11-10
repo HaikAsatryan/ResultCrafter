@@ -1,11 +1,11 @@
-# .editorconfig — Asatryan.VerticalSlices template
+# .editorconfig, based on the Asatryan.VerticalSlices template
 # Only entries that deviate from Roslyn SDK defaults. Restating defaults is intentionally avoided.
 # Build-time enforcement requires <EnforceCodeStyleInBuild>true</EnforceCodeStyleInBuild>.
 
 root = true
 
 ############################################################
-# All files — EditorConfig spec keys (no SDK provides these)
+# All files: EditorConfig spec keys (no SDK provides these)
 ############################################################
 [*]
 charset = utf-8
@@ -25,12 +25,14 @@ indent_size = 2
 end_of_line = crlf
 
 ############################################################
-# C# — surface style rules at build that ship below warning by default
+# C#: surface style rules at build that ship below warning by default
 ############################################################
 [*.cs]
 dotnet_diagnostic.IDE0055.severity = warning # apply formatting (dotnet-format)
+dotnet_diagnostic.IDE0130.severity = warning # namespace must match folder
+dotnet_diagnostic.IDE0161.severity = warning # file-scoped namespace
 
-# Bug detectors escalated to error — fail the build, not just nag
+# Bug detectors escalated to error: fail the build, not just nag
 dotnet_diagnostic.CA1849.severity = error # call async methods in async context
 dotnet_diagnostic.CA1853.severity = error # unnecessary ContainsKey before indexer
 dotnet_diagnostic.CA1854.severity = error # prefer IDictionary.TryGetValue

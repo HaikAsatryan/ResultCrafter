@@ -1,4 +1,4 @@
-﻿using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Mvc;
 
 namespace ResultCrafter.AspNetCore.Mvc;
 
@@ -17,13 +17,16 @@ namespace ResultCrafter.AspNetCore.Mvc;
 ///     <para>
 ///         Decorate controller actions with the ResultCrafter attribute family
 ///         (<c>[ProducesNotFound]</c>, <c>[ProducesBadRequest]</c>, etc.) to add the
-///         corresponding ProblemDetails status codes to the OpenAPI schema automatically.
+///         corresponding ProblemDetails status codes to the OpenAPI document. Once an action has any
+///         response-type attribute, MVC stops inferring the success response, so declare it too
+///         (<c>[ProducesResponseType&lt;T&gt;(200)]</c>).
 ///     </para>
 /// </remarks>
 public static class ControllerResultExtensions
 {
     /// <summary>Maps a bare <see cref="Error" /> directly to a <c>ProblemDetails</c> response.</summary>
-    public static IActionResult ToProblemResult(this Error error)
+    /// <exception cref="ArgumentNullException">Thrown when <paramref name="error" /> is <see langword="null" />.</exception>
+    public static ActionResult ToProblemResult(this Error error)
     {
         return new ProblemActionResult(error);
     }
@@ -40,13 +43,13 @@ public static class ControllerResultExtensions
     /// </remarks>
     public static ActionResult<T> ToOkResult<T>(this Result<T> result)
     {
-        if (!result.IsSuccess) return new ProblemActionResult(result.Error.Value);
+        if (!result.IsSuccess) return new ProblemActionResult(result.Error);
 
         if (result.Kind != SuccessKind.Ok)
             throw new InvalidOperationException(
                 $"ToOkResult requires a Result<T> constructed via Result<T>.Ok(T). Got Kind={result.Kind}.");
 
-        return new OkObjectResult(result.Value!);
+        return new OkObjectResult(result.Value);
     }
 
     /// <summary>
@@ -60,14 +63,14 @@ public static class ControllerResultExtensions
     /// </remarks>
     public static ActionResult<T> ToCreatedResult<T>(this Result<T> result)
     {
-        if (!result.IsSuccess) return new ProblemActionResult(result.Error!.Value);
+        if (!result.IsSuccess) return new ProblemActionResult(result.Error);
 
         if (result.Kind != SuccessKind.Created || result.Location is null)
             throw new InvalidOperationException(
                 $"ToCreatedResult requires a Result<T> constructed via Result<T>.Created(string, T). " +
                 $"Got Kind={result.Kind}, Location={(result.Location is null ? "null" : $"{result.Location}")}.");
 
-        return new CreatedResult(result.Location, result.Value!);
+        return new CreatedResult(result.Location, result.Value);
     }
 
     /// <summary>
@@ -81,13 +84,13 @@ public static class ControllerResultExtensions
     /// </remarks>
     public static ActionResult<T> ToAcceptedResult<T>(this Result<T> result)
     {
-        if (!result.IsSuccess) return new ProblemActionResult(result.Error.Value);
+        if (!result.IsSuccess) return new ProblemActionResult(result.Error);
 
         if (result.Kind != SuccessKind.Accepted)
             throw new InvalidOperationException(
                 $"ToAcceptedResult requires a Result<T> constructed via Result<T>.Accepted(T, string?). Got Kind={result.Kind}.");
 
-        return new AcceptedResult(result.Location, result.Value!);
+        return new AcceptedResult(result.Location, result.Value);
     }
 
     /// <summary>
@@ -99,9 +102,9 @@ public static class ControllerResultExtensions
     ///     calling this on an <c>Accepted</c> result is a programming error
     ///     and will throw <see cref="InvalidOperationException" />.
     /// </remarks>
-    public static IActionResult ToNoContentResult(this Result result)
+    public static ActionResult ToNoContentResult(this Result result)
     {
-        if (!result.IsSuccess) return new ProblemActionResult(result.Error!.Value);
+        if (!result.IsSuccess) return new ProblemActionResult(result.Error);
 
         if (result.Kind != SuccessKind.NoContent)
             throw new InvalidOperationException(
@@ -119,14 +122,14 @@ public static class ControllerResultExtensions
     ///     calling this on a <c>NoContent</c> result is a programming error
     ///     and will throw <see cref="InvalidOperationException" />.
     /// </remarks>
-    public static IActionResult ToAcceptedResult(this Result result)
+    public static ActionResult ToAcceptedResult(this Result result)
     {
-        if (!result.IsSuccess) return new ProblemActionResult(result.Error!.Value);
+        if (!result.IsSuccess) return new ProblemActionResult(result.Error);
 
         if (result.Kind != SuccessKind.Accepted)
             throw new InvalidOperationException(
                 $"ToAcceptedResult requires a Result constructed via Result.Accepted(). Got Kind={result.Kind}.");
 
-        return new AcceptedResult(result.AcceptedLocation, null);
+        return new AcceptedResult(result.Location, null);
     }
 }

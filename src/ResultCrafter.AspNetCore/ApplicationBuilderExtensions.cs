@@ -1,4 +1,4 @@
-﻿using Microsoft.AspNetCore.Builder;
+using Microsoft.AspNetCore.Builder;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace ResultCrafter.AspNetCore;
@@ -12,11 +12,11 @@ public static class ApplicationBuilderExtensions
     ///     Registers the ResultCrafter middleware pipeline:
     ///     <list type="bullet">
     ///         <item>
-    ///             <c>UseExceptionHandler</c> — catches unhandled exceptions and maps them to
+    ///             <c>UseExceptionHandler</c>: catches unhandled exceptions and maps them to
     ///             RFC 9457 ProblemDetails via <see cref="ResultCrafterExceptionHandler" />.
     ///         </item>
     ///         <item>
-    ///             <c>UseStatusCodePages</c> — converts bare non-success status codes
+    ///             <c>UseStatusCodePages</c>: converts bare non-success status codes
     ///             (e.g. 404 from routing) to ProblemDetails.
     ///         </item>
     ///     </list>

@@ -7,10 +7,15 @@
     <File Path="CLAUDE.md"/>
     <File Path="CODE_OF_CONDUCT.md"/>
     <File Path="Directory.Build.props"/>
+    <File Path="Directory.Build.targets"/>
     <File Path="global.json"/>
     <File Path="LICENSE"/>
     <File Path="llms.txt"/>
-    <File Path="Readme.md"/>
+    <File Path="README.md"/>
+  </Folder>
+  <Folder Name="/benchmarks/">
+    <File Path="benchmarks/README.md"/>
+    <Project Path="benchmarks/ResultCrafter.Benchmarks/ResultCrafter.Benchmarks.csproj"/>
   </Folder>
   <Folder Name="/src/">
     <Project Path="src/ResultCrafter.AspNetCore.EfCore/ResultCrafter.AspNetCore.EfCore.csproj"/>
@@ -18,9 +23,9 @@
     <Project Path="src/ResultCrafter.AspNetCore/ResultCrafter.AspNetCore.csproj"/>
     <Project Path="src/ResultCrafter.Core/ResultCrafter.Core.csproj"/>
     <Project Path="src/ResultCrafter.FluentValidation/ResultCrafter.FluentValidation.csproj"/>
-    <Project Path="src/ResultCrafter.MediatR/ResultCrafter.MediatR.csproj"/>
   </Folder>
   <Folder Name="/test/">
+    <Project Path="tests/ResultCrafter.AotSmoke/ResultCrafter.AotSmoke.csproj"/>
     <Project Path="tests/ResultCrafter.Demo/ResultCrafter.Demo.csproj"/>
     <Project Path="tests/ResultCrafter.Tests/ResultCrafter.Tests.csproj"/>
   </Folder>

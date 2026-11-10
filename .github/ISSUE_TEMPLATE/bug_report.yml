@@ -1,0 +1,45 @@
+name: Bug report
+description: Something in ResultCrafter does not work as documented.
+labels: [bug]
+body:
+  - type: input
+    id: version
+    attributes:
+      label: ResultCrafter version
+      placeholder: 3.0.0
+    validations:
+      required: true
+  - type: dropdown
+    id: runtime
+    attributes:
+      label: .NET version
+      options:
+        - .NET 10
+        - .NET 11
+        - Other
+    validations:
+      required: true
+  - type: dropdown
+    id: surface
+    attributes:
+      label: Where it happens
+      options:
+        - Minimal API
+        - MVC controllers
+        - Core only (no ASP.NET Core)
+    validations:
+      required: true
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened, and what you expected
+      description: Paste the response body or exception if there is one.
+    validations:
+      required: true
+  - type: textarea
+    id: repro
+    attributes:
+      label: Smallest code that shows it
+      render: csharp
+    validations:
+      required: true

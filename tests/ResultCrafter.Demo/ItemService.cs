@@ -25,7 +25,7 @@ public sealed class ItemService(IValidator<CreateItemRequest> createValidator)
     /// <summary>GET /items/{id} -> Ok or NotFound</summary>
     public async Task<Result<ItemDto>> GetAsync(int id, CancellationToken ct)
     {
-        await Task.CompletedTask; // simulates a real async DB call
+        await Task.Delay(TimeSpan.Zero, ct); // simulates a real async DB call that honors cancellation
 
         if (!_store.TryGetValue(id, out var entity)) return Error.NotFound($"Item {id} does not exist.");
 
@@ -41,7 +41,7 @@ public sealed class ItemService(IValidator<CreateItemRequest> createValidator)
         string? role,
         CancellationToken ct)
     {
-        await Task.CompletedTask; // simulates a real async DB call
+        await Task.Delay(TimeSpan.Zero, ct); // simulates a real async DB call that honors cancellation
 
         if (string.IsNullOrWhiteSpace(apiKey)) return Error.Unauthorized("A valid API key is required.");
 
@@ -63,7 +63,7 @@ public sealed class ItemService(IValidator<CreateItemRequest> createValidator)
     public async Task<Result<ItemDto>> CreateAsync(CreateItemRequest req, CancellationToken ct)
     {
         var error = await createValidator.ValidateToResultAsync(req, ct);
-        if (error is not null) return Result<ItemDto>.Fail(error.Value);
+        if (error is not null) return Result<ItemDto>.Fail(error);
 
         var id = Interlocked.Increment(ref _nextId);
         var entity = new ItemEntity(id, req.Name!, req.Price, req.Stock, 1);
@@ -79,7 +79,7 @@ public sealed class ItemService(IValidator<CreateItemRequest> createValidator)
     /// </summary>
     public async Task<Result<ItemDto>> UpdateAsync(int id, UpdateItemRequest req, CancellationToken ct)
     {
-        await Task.CompletedTask; // simulates a real async DB call
+        await Task.Delay(TimeSpan.Zero, ct); // simulates a real async DB call that honors cancellation
 
         if (!_store.TryGetValue(id, out var entity)) return Error.NotFound($"Item {id} does not exist.");
 
@@ -110,7 +110,7 @@ public sealed class ItemService(IValidator<CreateItemRequest> createValidator)
     /// <summary>DELETE /items/{id} -> NoContent or NotFound</summary>
     public async Task<Result> DeleteAsync(int id, CancellationToken ct)
     {
-        await Task.CompletedTask; // simulates a real async DB call
+        await Task.Delay(TimeSpan.Zero, ct); // simulates a real async DB call that honors cancellation
 
         return !_store.TryRemove(id, out _)
             ? Result.Fail(Error.NotFound($"Item {id} does not exist."))
@@ -125,7 +125,7 @@ public sealed class ItemService(IValidator<CreateItemRequest> createValidator)
     /// </summary>
     public async Task<Result<ItemDto>> ReserveAsync(int id, CancellationToken ct)
     {
-        await Task.CompletedTask; // simulates a real async DB call
+        await Task.Delay(TimeSpan.Zero, ct); // simulates a real async DB call that honors cancellation
 
         if (!_store.TryGetValue(id, out var entity)) return Error.NotFound($"Item {id} does not exist.");
 
@@ -149,7 +149,7 @@ public sealed class ItemService(IValidator<CreateItemRequest> createValidator)
     /// </summary>
     public async Task<Result> BulkDeleteAsync(BulkDeleteRequest req, CancellationToken ct)
     {
-        await Task.CompletedTask; // simulates a real async DB call
+        await Task.Delay(TimeSpan.Zero, ct); // simulates a real async DB call that honors cancellation
 
         if (req.Ids is null || req.Ids.Count == 0) return Error.BadRequest("At least one item ID must be provided.");
 

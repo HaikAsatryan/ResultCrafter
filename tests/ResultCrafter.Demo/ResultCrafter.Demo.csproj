@@ -7,12 +7,9 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <PackageReference Include="FluentValidation.DependencyInjectionExtensions" Version="12.1.1"/>
-    <PackageReference Include="Microsoft.AspNetCore.OpenApi" Version="10.0.9"/>
-    <!-- Direct pin: lifts the vulnerable Microsoft.OpenApi 2.0.0 floor pulled in
-         transitively by Microsoft.AspNetCore.OpenApi (GHSA-v5pm-xwqc-g5wc). -->
-    <PackageReference Include="Microsoft.OpenApi" Version="2.9.0"/>
-    <PackageReference Include="Scalar.AspNetCore" Version="2.16.10"/>
+    <PackageReference Include="FluentValidation.DependencyInjectionExtensions" Version="12.2.0"/>
+    <PackageReference Include="Microsoft.AspNetCore.OpenApi" Version="10.0.15"/>
+    <PackageReference Include="Scalar.AspNetCore" Version="2.20.0"/>
   </ItemGroup>
 
   <ItemGroup>
@@ -20,7 +17,6 @@
     <ProjectReference Include="..\..\src\ResultCrafter.AspNetCore.FluentValidation\ResultCrafter.AspNetCore.FluentValidation.csproj"/>
     <ProjectReference Include="..\..\src\ResultCrafter.AspNetCore\ResultCrafter.AspNetCore.csproj"/>
     <ProjectReference Include="..\..\src\ResultCrafter.FluentValidation\ResultCrafter.FluentValidation.csproj"/>
-    <ProjectReference Include="..\..\src\ResultCrafter.MediatR\ResultCrafter.MediatR.csproj"/>
   </ItemGroup>
 
 </Project>

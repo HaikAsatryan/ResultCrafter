@@ -1,12 +1,9 @@
-﻿using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Logging;
 
 namespace ResultCrafter.AspNetCore.ProblemDetails;
 
-/// <summary>
-///     Source-generated structured log methods used throughout ResultCrafter.
-///     Consumers should not call these directly; they are invoked by the middleware pipeline.
-/// </summary>
-public static partial class ResultCrafterLogger
+/// <summary>Source-generated structured log methods used by the ResultCrafter pipeline.</summary>
+internal static partial class ResultCrafterLogger
 {
     /// <summary>
     ///     Logs a <c>4xx</c> client error at the level specified by
@@ -17,7 +14,7 @@ public static partial class ResultCrafterLogger
     /// </summary>
     [LoggerMessage(
         EventId = 1,
-        Message = "Client error {StatusCode}: {Title} — {Detail} (errorId: {ErrorId}) " +
+        Message = "Client error {StatusCode}: {Title}, {Detail} (errorId: {ErrorId}) " +
                   "{HttpMethod} {Path} {Instance} (traceId: {TraceId}, requestId: {RequestId})")]
     public static partial void LogClientError(ILogger logger,
         LogLevel level,

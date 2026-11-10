@@ -7,16 +7,16 @@ namespace ResultCrafter;
 public enum ErrorType
 {
     /// <summary>
-    ///     The CLR default value. Not a valid error type. Exists so that
-    ///     <c>default(Error)</c> and <c>default(ErrorType)</c> are explicitly
-    ///     invalid rather than silently mapping to <see cref="BadRequest" />.
+    ///     The CLR default value. Not a valid error type: no <see cref="Error" /> factory produces it, and
+    ///     the HTTP catalog rejects it, so <c>default(ErrorType)</c> never maps silently to
+    ///     <see cref="BadRequest" />.
     /// </summary>
     None = 0,
 
     /// <summary>
     ///     A business-rule violation or invalid input (HTTP 400).
     ///     When constructed with a field-errors dictionary via
-    ///     <see cref="Error.BadRequest(Dictionary{string, string[]}, string?)" />,
+    ///     <see cref="Error.BadRequest(IReadOnlyDictionary{string, string[]}, string?)" />,
     ///     the response uses the structured RFC 9457 <c>ValidationProblem</c> shape
     ///     with the <c>errors</c> dictionary at the top level of the body.
     ///     Without a dictionary, a plain <c>ProblemDetails</c> response is returned.

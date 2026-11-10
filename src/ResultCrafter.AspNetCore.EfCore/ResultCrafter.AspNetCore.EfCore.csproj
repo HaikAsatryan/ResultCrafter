@@ -1,7 +1,7 @@
-﻿<Project Sdk="Microsoft.NET.Sdk">
+<Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
-    <Description>EF Core integration for ResultCrafter ASP.NET Core. Maps DbUpdateConcurrencyException to 409 RFC 9457 ProblemDetails via IExceptionHandler.</Description>
+    <Description>EF Core integration for ResultCrafter ASP.NET Core. Maps an optimistic-concurrency DbUpdateConcurrencyException to a 409 RFC 9457 ProblemDetails via IExceptionHandler. Serialization failures and deadlocks (SQLSTATE 40001, 40P01) stay 500.</Description>
     <PackageTags>ef-core;aspnetcore;result-pattern;problem-details;problemdetails;concurrency;optimistic-concurrency;dbupdateconcurrencyexception;iexceptionhandler</PackageTags>
   </PropertyGroup>
 
@@ -9,18 +9,10 @@
     <FrameworkReference Include="Microsoft.AspNetCore.App"/>
   </ItemGroup>
 
-  <!-- Open minimum floors (no brackets): consumers get the widest possible range and can
-       float to any later patch. The test project pins the latest patches directly so the
-       repo's own build graph stays free of known-vulnerable transitives. -->
-  <ItemGroup Condition="'$(TargetFramework)' == 'net8.0'">
-    <PackageReference Include="Microsoft.EntityFrameworkCore" Version="8.0.0"/>
-  </ItemGroup>
-
-  <ItemGroup Condition="'$(TargetFramework)' == 'net9.0'">
-    <PackageReference Include="Microsoft.EntityFrameworkCore" Version="9.0.0"/>
-  </ItemGroup>
-
-  <ItemGroup Condition="'$(TargetFramework)' == 'net10.0'">
+  <!-- Open minimum floor (no brackets): consumers can use any later EF Core, including 11.x.
+       The test project pins the latest patches for its own graph. This project still restores 10.0.0, so a
+       future advisory on it would fail the -warnaserror build here; raise the floor then. -->
+  <ItemGroup>
     <PackageReference Include="Microsoft.EntityFrameworkCore" Version="10.0.0"/>
   </ItemGroup>
 

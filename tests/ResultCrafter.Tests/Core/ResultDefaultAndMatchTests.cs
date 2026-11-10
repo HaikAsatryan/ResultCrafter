@@ -1,63 +1,39 @@
-using ResultCrafter.AspNetCore.ProblemDetails;
+using ResultCrafter.AspNetCore;
+using ResultCrafter.AspNetCore.Mvc;
 
 namespace ResultCrafter.Tests.Core;
 
 /// <summary>
-///     Pins the CLR-default semantics of the result structs, documents how
-///     <c>default(Error)</c> smuggles the <see cref="ErrorType.None" /> sentinel past the
-///     factory guards (and where the catalog catches it), covers the <c>Match</c>
-///     combinators, and guards the case-insensitive key merge in
-///     <see cref="Error.BadRequest(Dictionary{string, string[]}, string?)" />.
+///     Covers the null-<see cref="Error" /> guards, the <c>Match</c> combinators, and the case-insensitive key
+///     merge in <see cref="Error.BadRequest(IReadOnlyDictionary{string, string[]}, string?)" />. Default
+///     results are covered by <c>DefaultResultTests</c>.
 /// </summary>
 public sealed class ResultDefaultAndMatchTests
 {
-    // ── default(Result) / default(Result<T>) semantics ─────────────────────────
+    // ── A null Error never becomes a failure result ────────────────────────────
 
-    [Fact]
-    public void DefaultVoidResult_IsSuccessWithOkKindAndNullError()
+    [Theory]
+    [InlineData("Result.Fail")]
+    [InlineData("Result<T>.Fail")]
+    [InlineData("implicit Result")]
+    [InlineData("implicit Result<T>")]
+    [InlineData("MinimalApi.ToProblemResult")]
+    [InlineData("Mvc.ToProblemResult")]
+    public void NullError_ThrowsArgumentNull(string entryPoint)
     {
-        var result = default(Result);
+        Error error = null!;
+        Action call = entryPoint switch
+        {
+            "Result.Fail" => () => Result.Fail(error),
+            "Result<T>.Fail" => () => Result<int>.Fail(error),
+            "implicit Result" => () => _ = (Result)error,
+            "implicit Result<T>" => () => _ = (Result<int>)error,
+            "MinimalApi.ToProblemResult" => () => MinimalApiResultExtensions.ToProblemResult(error),
+            "Mvc.ToProblemResult" => () => ControllerResultExtensions.ToProblemResult(error),
+            _ => throw new ArgumentOutOfRangeException(nameof(entryPoint))
+        };
 
-        Assert.True(result.IsSuccess);
-        Assert.Equal(SuccessKind.Ok, result.Kind);
-        Assert.Null(result.Error);
-        Assert.Null(result.AcceptedLocation);
-    }
-
-    [Fact]
-    public void DefaultResultOfT_IsSuccessWithOkKindAndNullError()
-    {
-        var result = default(Result<string>);
-
-        Assert.True(result.IsSuccess);
-        Assert.Equal(SuccessKind.Ok, result.Kind);
-        Assert.Null(result.Error);
-        Assert.Null(result.Value);
-        Assert.Null(result.Location);
-    }
-
-    // ── default(Error) smuggles the None sentinel past the factory guards ──────
-
-    [Fact]
-    public void Fail_DefaultError_SmugglesErrorTypeNone()
-    {
-        // default(Error) bypasses the private constructor guard, so the None sentinel
-        // reaches the failure path. The catalog is the backstop that rejects it.
-        var result = Result.Fail(default);
-
-        Assert.False(result.IsSuccess);
-        Assert.Equal(ErrorType.None, result.Error!.Value.Type);
-        Assert.Throws<ArgumentOutOfRangeException>(() => HttpErrorCatalog.Status(result.Error.Value.Type));
-    }
-
-    [Fact]
-    public void FailOfT_DefaultError_SmugglesErrorTypeNone()
-    {
-        var result = Result<int>.Fail(default);
-
-        Assert.False(result.IsSuccess);
-        Assert.Equal(ErrorType.None, result.Error!.Value.Type);
-        Assert.Throws<ArgumentOutOfRangeException>(() => HttpErrorCatalog.Status(result.Error.Value.Type));
+        Assert.Throws<ArgumentNullException>(call);
     }
 
     // ── Match: void Result ─────────────────────────────────────────────────────

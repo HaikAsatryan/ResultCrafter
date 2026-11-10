@@ -16,7 +16,7 @@ public sealed class SuccessKindGuardTests
     private const string Location = "/items/42";
 
     // ════════════════════════════════════════════════════════
-    // Minimal API surface — Result<T>
+    // Minimal API surface: Result<T>
     // ════════════════════════════════════════════════════════
 
     [Fact]
@@ -83,7 +83,7 @@ public sealed class SuccessKindGuardTests
     }
 
     // ════════════════════════════════════════════════════════
-    // Minimal API surface — void Result
+    // Minimal API surface: void Result
     // ════════════════════════════════════════════════════════
 
     [Fact]
@@ -115,7 +115,7 @@ public sealed class SuccessKindGuardTests
     }
 
     // ════════════════════════════════════════════════════════
-    // Controller surface — Result<T>
+    // Controller surface: Result<T>
     // ════════════════════════════════════════════════════════
 
     [Fact]
@@ -182,7 +182,7 @@ public sealed class SuccessKindGuardTests
     }
 
     // ════════════════════════════════════════════════════════
-    // Controller surface — void Result
+    // Controller surface: void Result
     // ════════════════════════════════════════════════════════
 
     [Fact]

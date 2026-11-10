@@ -79,6 +79,9 @@ public sealed class BadHttpRequestExceptionHandlerTests
         using var doc =
             JsonDocument.Parse(await response.Content.ReadAsStringAsync(TestContext.Current.CancellationToken));
         Assert.Equal(413, doc.RootElement.GetProperty("status").GetInt32());
+        Assert.Equal("https://tools.ietf.org/html/rfc9110#section-15.5.14",
+            doc.RootElement.GetProperty("type").GetString());
+        Assert.False(string.IsNullOrEmpty(doc.RootElement.GetProperty("title").GetString()));
     }
 
     // ── Guard: non-BadHttpRequestException is left to the catch-all handler ────

@@ -22,6 +22,8 @@ namespace ResultCrafter.AspNetCore.FluentValidation;
 ///     <typeparamref name="TRequest" /> argument <i>is</i> present but no <see cref="IValidator{T}" />
 ///     is registered, the filter throws an <see cref="InvalidOperationException" /> so the
 ///     misconfiguration surfaces immediately instead of silently skipping validation.
+///     When parameter binding already failed (the response status is 400 on entry), validation is skipped so the
+///     binding error reaches the client unchanged.
 ///     On failure, the field-error keys are aligned to the application's configured JSON
 ///     property-naming policy (camelCase by default for Minimal APIs) so they match the property
 ///     names on the wire, including nested (<c>address.street</c>) and indexed (<c>items[0].name</c>)
@@ -36,6 +38,11 @@ public sealed class ValidationFilter<TRequest> : IEndpointFilter where TRequest 
     public async ValueTask<object?> InvokeAsync(EndpointFilterInvocationContext context,
         EndpointFilterDelegate next)
     {
+        // Filters also run after parameter binding failed (in Production, where binding failures do not
+        // throw). The status is already 400 and the handler will not run. Validating now would waste a call,
+        // or replace the binding error with the validator's field errors.
+        if (context.HttpContext.Response.StatusCode == StatusCodes.Status400BadRequest) return await next(context);
+
         var request = context.Arguments.OfType<TRequest>().FirstOrDefault();
         if (request is null)
             // No non-null TRequest argument to validate: either the endpoint doesn't take one
@@ -56,7 +63,7 @@ public sealed class ValidationFilter<TRequest> : IEndpointFilter where TRequest 
         var error = await validator.ValidateToResultAsync(request, context.HttpContext.RequestAborted);
         if (error is null) return await next(context);
 
-        return AlignKeysToJsonPolicy(error.Value, context.HttpContext).ToProblemResult();
+        return AlignKeysToJsonPolicy(error, context.HttpContext).ToProblemResult();
     }
 
     /// <summary>
@@ -67,40 +74,13 @@ public sealed class ValidationFilter<TRequest> : IEndpointFilter where TRequest 
     /// </summary>
     private static Error AlignKeysToJsonPolicy(Error error, HttpContext httpContext)
     {
-        if (error.Errors is null || error.Errors.Count == 0) return error;
+        if (error.Errors is null) return error;
 
         var jsonOptions = httpContext.RequestServices.GetService<IOptions<JsonOptions>>();
         var policy = jsonOptions?.Value.SerializerOptions.PropertyNamingPolicy;
         if (policy is null) return error;
 
-        var aligned = new Dictionary<string, string[]>(error.Errors.Count, StringComparer.OrdinalIgnoreCase);
-
-        foreach (var (key, messages) in error.Errors)
-        {
-            var converted = ConvertPath(policy, key);
-
-            // Distinct source keys can collapse to the same converted key (rare, e.g. "Foo"/"foo");
-            // merge their messages rather than throwing or silently dropping one.
-            aligned[converted] = aligned.TryGetValue(converted, out var existing)
-                ? [.. existing, .. messages]
-                : messages;
-        }
-
+        var aligned = FieldKeyNaming.ConvertKeys(policy, error.Errors, StringComparer.OrdinalIgnoreCase);
         return Error.BadRequest(aligned, error.Detail);
-    }
-
-    /// <summary>
-    ///     Applies <paramref name="policy" /> to each dot-separated segment of
-    ///     <paramref name="propertyName" />, matching how System.Text.Json names nested and indexed
-    ///     properties on the wire (e.g. <c>Address.Street</c> -&gt; <c>address.street</c>).
-    /// </summary>
-    private static string ConvertPath(JsonNamingPolicy policy, string propertyName)
-    {
-        if (!propertyName.Contains('.')) return policy.ConvertName(propertyName);
-
-        var segments = propertyName.Split('.');
-        for (var i = 0; i < segments.Length; i++) segments[i] = policy.ConvertName(segments[i]);
-
-        return string.Join('.', segments);
     }
 }

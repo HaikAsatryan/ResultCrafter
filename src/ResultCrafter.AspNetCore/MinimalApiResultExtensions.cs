@@ -18,6 +18,7 @@ namespace ResultCrafter.AspNetCore;
 public static class MinimalApiResultExtensions
 {
     /// <summary>Maps a bare <see cref="Error" /> directly to a <c>ProblemDetails</c> response.</summary>
+    /// <exception cref="ArgumentNullException">Thrown when <paramref name="error" /> is <see langword="null" />.</exception>
     public static ProblemHttpResult ToProblemResult(this Error error)
     {
         return CreateProblem(error);
@@ -48,7 +49,7 @@ public static class MinimalApiResultExtensions
     /// </remarks>
     public static Results<Ok<T>, ProblemHttpResult> ToOkResult<T>(this Result<T> result)
     {
-        if (!result.IsSuccess) return CreateProblem(result.Error.Value);
+        if (!result.IsSuccess) return CreateProblem(result.Error);
 
         if (result.Kind != SuccessKind.Ok)
             throw new InvalidOperationException(
@@ -68,14 +69,14 @@ public static class MinimalApiResultExtensions
     /// </remarks>
     public static Results<Created<T>, ProblemHttpResult> ToCreatedResult<T>(this Result<T> result)
     {
-        if (!result.IsSuccess) return CreateProblem(result.Error!.Value);
+        if (!result.IsSuccess) return CreateProblem(result.Error);
 
         if (result.Kind != SuccessKind.Created || result.Location is null)
             throw new InvalidOperationException(
                 $"ToCreatedResult requires a Result<T> constructed via Result<T>.Created(string, T). " +
                 $"Got Kind={result.Kind}, Location={(result.Location is null ? "null" : $"{result.Location}")}.");
 
-        return TypedResults.Created(result.Location, result.Value!);
+        return TypedResults.Created(result.Location, result.Value);
     }
 
     /// <summary>
@@ -89,13 +90,13 @@ public static class MinimalApiResultExtensions
     /// </remarks>
     public static Results<Accepted<T>, ProblemHttpResult> ToAcceptedResult<T>(this Result<T> result)
     {
-        if (!result.IsSuccess) return CreateProblem(result.Error.Value);
+        if (!result.IsSuccess) return CreateProblem(result.Error);
 
         if (result.Kind != SuccessKind.Accepted)
             throw new InvalidOperationException(
                 $"ToAcceptedResult requires a Result<T> constructed via Result<T>.Accepted(T, string?). Got Kind={result.Kind}.");
 
-        return TypedResults.Accepted(result.Location, result.Value!);
+        return TypedResults.Accepted(result.Location, result.Value);
     }
 
     /// <summary>
@@ -109,7 +110,7 @@ public static class MinimalApiResultExtensions
     /// </remarks>
     public static Results<NoContent, ProblemHttpResult> ToNoContentResult(this Result result)
     {
-        if (!result.IsSuccess) return CreateProblem(result.Error!.Value);
+        if (!result.IsSuccess) return CreateProblem(result.Error);
 
         if (result.Kind != SuccessKind.NoContent)
             throw new InvalidOperationException(
@@ -129,12 +130,12 @@ public static class MinimalApiResultExtensions
     /// </remarks>
     public static Results<Accepted, ProblemHttpResult> ToAcceptedResult(this Result result)
     {
-        if (!result.IsSuccess) return CreateProblem(result.Error!.Value);
+        if (!result.IsSuccess) return CreateProblem(result.Error);
 
         if (result.Kind != SuccessKind.Accepted)
             throw new InvalidOperationException(
                 $"ToAcceptedResult requires a Result constructed via Result.Accepted(). Got Kind={result.Kind}.");
 
-        return TypedResults.Accepted(result.AcceptedLocation);
+        return TypedResults.Accepted(result.Location);
     }
 }

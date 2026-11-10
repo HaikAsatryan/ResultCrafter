@@ -16,46 +16,76 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
-  publish:
+  aot-smoke:
     runs-on: ubuntu-latest
-    environment: Environment Settings
 
     steps:
       - name: Checkout
         uses: actions/checkout@v7
 
       - name: Setup .NET
-        uses: actions/setup-dotnet@v5
+        uses: actions/setup-dotnet@v6
         with:
           global-json-file: global.json
-          dotnet-version: |
-            8.0.x
-            9.0.x
+          dotnet-version: 10.0.x
+
+      # NativeAOT on Ubuntu needs clang. GitHub's Ubuntu images ship it; install only if missing.
+      - name: NativeAOT prerequisites
+        run: command -v clang >/dev/null || (sudo apt-get update && sudo apt-get install -y clang)
+
+      - name: NativeAOT publish and smoke test (net10.0 and net11.0)
+        run: bash tests/ResultCrafter.AotSmoke/run-aot-smoke.sh
+
+  publish:
+    needs: aot-smoke
+    runs-on: ubuntu-latest
+    environment: Environment Settings
+    permissions:
+      contents: read
+      id-token: write # lets NuGet/login exchange the GitHub OIDC token for a short-lived API key
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      # global.json pins the .NET 11 SDK; 10.0.x adds the .NET 10 runtime the net10.0 tests run on.
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v6
+        with:
+          global-json-file: global.json
+          dotnet-version: 10.0.x
 
       - name: Restore
         run: dotnet restore
 
       - name: Build
-        run: dotnet build --no-restore --configuration Release
+        run: dotnet build --no-restore --configuration Release -warnaserror
 
-      - name: Test
+      - name: Test (net10.0 and net11.0)
         run: dotnet test --no-build --configuration Release --verbosity normal
 
       # Pack runs NuGet package validation (EnablePackageValidation). No baseline comparison for
-      # 2.0.0 (intentional breaking release); set PackageValidationBaselineVersion to 2.0.0 in
+      # 3.0.0 (intentional breaking release); set PackageValidationBaselineVersion to 3.0.0 in
       # Directory.Build.targets after it ships so later releases validate against it.
       - name: Pack
         run: dotnet pack ResultCrafter.slnx --no-build --configuration Release --output ${{ env.OUTPUT_DIR }}
 
+      # Trusted publishing: the key is valid for one hour, so request it right before the push.
+      - name: NuGet login (OIDC)
+        id: nuget-login
+        uses: NuGet/login@v1
+        with:
+          user: ${{ secrets.NUGET_USER }}
+
       - name: Publish packages
         env:
-          NUGET_API_KEY: ${{ secrets.NUGET_API_KEY }}
+          NUGET_API_KEY: ${{ steps.nuget-login.outputs.NUGET_API_KEY }}
         shell: bash
         run: |
           set -euo pipefail
 
           if [ -z "${NUGET_API_KEY:-}" ]; then
-            echo "NUGET_API_KEY is missing. If you stored it as an Environment secret, set jobs.publish.environment to that Environment name."
+            echo "NuGet login returned no API key. Check the NUGET_USER secret and the nuget.org trusted publishing policy."
             exit 1
           fi
 
