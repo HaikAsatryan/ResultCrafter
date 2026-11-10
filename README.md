@@ -10,7 +10,7 @@ right HTTP response in one call. Errors leave as clean RFC 9457 ProblemDetails, 
 
 [![NuGet](https://img.shields.io/nuget/v/ResultCrafter.AspNetCore?label=nuget)](https://www.nuget.org/packages/ResultCrafter.AspNetCore)
 [![Downloads](https://img.shields.io/nuget/dt/ResultCrafter.AspNetCore)](https://www.nuget.org/packages/ResultCrafter.AspNetCore)
-[![Build](https://github.com/HaikAsatryan/ResultCrafter/actions/workflows/main.yml/badge.svg)](https://github.com/HaikAsatryan/ResultCrafter/actions/workflows/main.yml)
+[![Build](https://img.shields.io/github/actions/workflow/status/HaikAsatryan/ResultCrafter/main.yml?branch=main&label=build)](https://github.com/HaikAsatryan/ResultCrafter/actions/workflows/main.yml)
 
 ## The idea
 
