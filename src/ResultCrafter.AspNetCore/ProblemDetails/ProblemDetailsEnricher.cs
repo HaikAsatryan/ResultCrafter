@@ -1,4 +1,4 @@
-﻿using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Http.Features;
 
 namespace ResultCrafter.AspNetCore.ProblemDetails;
@@ -12,12 +12,15 @@ namespace ResultCrafter.AspNetCore.ProblemDetails;
 ///     object keys to avoid string-key collisions and to speed up repeated lookups within
 ///     the same request.
 /// </remarks>
-public static class ProblemDetailsEnricher
+internal static class ProblemDetailsEnricher
 {
     // Typed object keys avoid string-key collisions in HttpContext.Items and are
     // marginally faster for dictionary lookup (reference equality vs. string comparison).
-    private static readonly object InstanceKey = new();
-    private static readonly object TraceIdKey = new();
+    private static readonly object InstanceItemKey = new();
+    private static readonly object TraceIdItemKey = new();
+
+    /// <summary>The extension member name for the trace id.</summary>
+    public const string TraceIdKey = "traceId";
 
     /// <summary>
     ///     Returns the W3C Trace Context activity ID for <paramref name="ctx" />,
@@ -26,11 +29,11 @@ public static class ProblemDetailsEnricher
     /// </summary>
     public static string GetTraceId(HttpContext ctx)
     {
-        if (ctx.Items.TryGetValue(TraceIdKey, out var cached)) return (string)cached!;
+        if (ctx.Items.TryGetValue(TraceIdItemKey, out var cached)) return (string)cached!;
 
         var value = ctx.Features.Get<IHttpActivityFeature>()
             ?.Activity.Id ?? string.Empty;
-        ctx.Items[TraceIdKey] = value;
+        ctx.Items[TraceIdItemKey] = value;
         return value;
     }
 
@@ -47,13 +50,13 @@ public static class ProblemDetailsEnricher
     /// </remarks>
     public static string GetInstance(HttpContext ctx)
     {
-        if (ctx.Items.TryGetValue(InstanceKey, out var cached)) return (string)cached!;
+        if (ctx.Items.TryGetValue(InstanceItemKey, out var cached)) return (string)cached!;
 
-        var value = ctx.Request.PathBase.Add(ctx.Request.Path)
-            .Value;
+        // ToUriComponent escapes what a URI cannot hold (a space becomes %20); Value is the decoded path.
+        var value = ctx.Request.PathBase.Add(ctx.Request.Path).ToUriComponent();
         if (string.IsNullOrEmpty(value)) value = "/";
 
-        ctx.Items[InstanceKey] = value;
+        ctx.Items[InstanceItemKey] = value;
         return value;
     }
 
@@ -66,6 +69,6 @@ public static class ProblemDetailsEnricher
     {
         pd.Instance ??= GetInstance(ctx);
         pd.Extensions.TryAdd("requestId", ctx.TraceIdentifier);
-        pd.Extensions.TryAdd("traceId", GetTraceId(ctx));
+        pd.Extensions.TryAdd(TraceIdKey, GetTraceId(ctx));
     }
 }

@@ -1,4 +1,4 @@
-﻿using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Logging;
 
 namespace ResultCrafter.AspNetCore;
 
@@ -54,7 +54,7 @@ public enum ExceptionDetailMode
 
     /// <summary>
     ///     Always exposes the full exception string.
-    ///     Use only for internal or debug deployments — never in production.
+    ///     Use only for internal or debug deployments; never in production.
     /// </summary>
     IncludeExceptionDetails = 2
 }

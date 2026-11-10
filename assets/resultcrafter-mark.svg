@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" width="128" height="128" role="img" aria-label="ResultCrafter">
+<!-- The ResultCrafter mark: a return arrow that starts from a value. Written by assets/build.py; change it there, not here. -->
+<rect width="128" height="128" rx="28" fill="#F5A524"/>
+<g fill="none" stroke="#1B1E27" stroke-width="15" stroke-linecap="round" stroke-linejoin="round">
+<path d="M86 44V64Q86 80 70 80H38"/>
+<path d="M54 61L35 80L54 99"/>
+</g>
+<circle cx="86" cy="32" r="12.5" fill="#1B1E27"/>
+</svg>

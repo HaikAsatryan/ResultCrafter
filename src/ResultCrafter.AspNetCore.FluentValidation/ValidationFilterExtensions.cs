@@ -1,6 +1,7 @@
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Routing;
+using ResultCrafter.AspNetCore.ProblemDetails;
 
 namespace ResultCrafter.AspNetCore.FluentValidation;
 
@@ -38,7 +39,7 @@ public static class ValidationFilterExtensions
             .AddEndpointFilter<ValidationFilter<TRequest>>()
             .WithMetadata(new ProducesResponseTypeMetadata(
                 StatusCodes.Status400BadRequest,
-                typeof(Microsoft.AspNetCore.Mvc.ProblemDetails),
+                typeof(ProblemResponse),
                 ["application/problem+json"]));
     }
 }

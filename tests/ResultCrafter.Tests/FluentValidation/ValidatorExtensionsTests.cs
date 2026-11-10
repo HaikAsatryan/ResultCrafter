@@ -38,7 +38,7 @@ public sealed class ValidatorExtensionsTests
 
         var error = await _validator.ValidateToResultAsync(request, TestContext.Current.CancellationToken);
 
-        Assert.Equal(ErrorType.BadRequest, error!.Value.Type);
+        Assert.Equal(ErrorType.BadRequest, error!.Type);
     }
 
     [Fact]
@@ -48,7 +48,7 @@ public sealed class ValidatorExtensionsTests
 
         var error = await _validator.ValidateToResultAsync(request, TestContext.Current.CancellationToken);
 
-        Assert.True(error!.Value.IsValidation);
+        Assert.True(error!.IsValidation);
     }
 
     // ── Field keys match property names ───────────────────────────────────────
@@ -60,8 +60,8 @@ public sealed class ValidatorExtensionsTests
 
         var error = await _validator.ValidateToResultAsync(request, TestContext.Current.CancellationToken);
 
-        Assert.NotNull(error!.Value.Errors);
-        Assert.True(error.Value.Errors!.ContainsKey("Quantity"));
+        Assert.NotNull(error!.Errors);
+        Assert.True(error.Errors!.ContainsKey("Quantity"));
     }
 
     [Fact]
@@ -71,9 +71,9 @@ public sealed class ValidatorExtensionsTests
 
         var error = await _validator.ValidateToResultAsync(request, TestContext.Current.CancellationToken);
 
-        Assert.NotNull(error!.Value.Errors);
-        Assert.True(error.Value.Errors!.ContainsKey("CustomerEmail"));
-        Assert.True(error.Value.Errors!.ContainsKey("Quantity"));
+        Assert.NotNull(error!.Errors);
+        Assert.True(error.Errors!.ContainsKey("CustomerEmail"));
+        Assert.True(error.Errors!.ContainsKey("Quantity"));
     }
 
     // ── Error messages ─────────────────────────────────────────────────────────
@@ -85,7 +85,7 @@ public sealed class ValidatorExtensionsTests
 
         var error = await _validator.ValidateToResultAsync(request, TestContext.Current.CancellationToken);
 
-        var messages = error!.Value.Errors!["CustomerEmail"];
+        var messages = error!.Errors!["CustomerEmail"];
         Assert.Contains("Email is required.", messages);
     }
 
@@ -97,7 +97,7 @@ public sealed class ValidatorExtensionsTests
 
         var error = await _validator.ValidateToResultAsync(request, TestContext.Current.CancellationToken);
 
-        var messages = error!.Value.Errors!["CustomerEmail"];
+        var messages = error!.Errors!["CustomerEmail"];
         Assert.Contains("Email must be a valid address.", messages);
     }
 
@@ -115,7 +115,29 @@ public sealed class ValidatorExtensionsTests
     }
     // ── Fixture ────────────────────────────────────────────────────────────────
 
+    [Fact]
+    public async Task ValidateToResultAsync_ModelLevelAndDuplicateMessages_AreNormalized()
+    {
+        var error = await new ModelLevelValidator().ValidateToResultAsync(
+            new CreateOrderRequest("a@b.c", 0), TestContext.Current.CancellationToken);
+
+        Assert.Equal(["Order is invalid."], error!.Errors!["_"]);
+        Assert.Equal(["Bad."], error.Errors["Quantity"]);
+    }
+
     private sealed record CreateOrderRequest(string? CustomerEmail, int Quantity);
+
+    // A model-level rule (empty property name), a repeated message and a whitespace-only message.
+    private sealed class ModelLevelValidator : AbstractValidator<CreateOrderRequest>
+    {
+        public ModelLevelValidator()
+        {
+            RuleFor(x => x).Must(_ => false).WithMessage("Order is invalid.");
+            RuleFor(x => x.Quantity).GreaterThan(0).WithMessage("Bad.");
+            RuleFor(x => x.Quantity).GreaterThan(1).WithMessage("Bad.");
+            RuleFor(x => x.Quantity).GreaterThan(2).WithMessage(" ");
+        }
+    }
 
     private sealed class CreateOrderRequestValidator : AbstractValidator<CreateOrderRequest>
     {

@@ -1,0 +1,19 @@
+<Project Sdk="Microsoft.NET.Sdk.Web">
+
+  <!-- Publishes as NativeAOT and checks itself: starts Kestrel on a free port, calls its own endpoints,
+       exits 0 when every check passes, 1 otherwise. Run it with run-aot-smoke.sh. -->
+  <PropertyGroup>
+    <TargetFrameworks>net10.0;net11.0</TargetFrameworks>
+    <OutputType>Exe</OutputType>
+    <PublishAot>true</PublishAot>
+    <InvariantGlobalization>true</InvariantGlobalization>
+    <IsPackable>false</IsPackable>
+    <GenerateDocumentationFile>false</GenerateDocumentationFile>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\ResultCrafter.AspNetCore\ResultCrafter.AspNetCore.csproj"/>
+    <ProjectReference Include="..\..\src\ResultCrafter.AspNetCore.FluentValidation\ResultCrafter.AspNetCore.FluentValidation.csproj"/>
+  </ItemGroup>
+
+</Project>

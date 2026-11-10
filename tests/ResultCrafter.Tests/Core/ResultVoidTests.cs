@@ -1,4 +1,4 @@
-﻿namespace ResultCrafter.Tests.Core;
+namespace ResultCrafter.Tests.Core;
 
 public sealed class ResultVoidTests
 {
@@ -19,10 +19,10 @@ public sealed class ResultVoidTests
     }
 
     [Fact]
-    public void NoContent_AcceptedLocationIsNull()
+    public void NoContent_LocationIsNull()
     {
         var result = Result.NoContent();
-        Assert.Null(result.AcceptedLocation);
+        Assert.Null(result.Location);
     }
 
     // ── Accepted ──────────────────────────────────────────────────────────────
@@ -35,17 +35,17 @@ public sealed class ResultVoidTests
     }
 
     [Fact]
-    public void Accepted_WithLocation_SetsAcceptedLocation()
+    public void Accepted_WithLocation_SetsLocation()
     {
         var result = Result.Accepted("/api/jobs/42/status");
-        Assert.Equal("/api/jobs/42/status", result.AcceptedLocation);
+        Assert.Equal("/api/jobs/42/status", result.Location);
     }
 
     [Fact]
-    public void Accepted_WithoutLocation_AcceptedLocationIsNull()
+    public void Accepted_WithoutLocation_LocationIsNull()
     {
         var result = Result.Accepted();
-        Assert.Null(result.AcceptedLocation);
+        Assert.Null(result.Location);
     }
 
     // ── Fail ──────────────────────────────────────────────────────────────────
@@ -63,7 +63,7 @@ public sealed class ResultVoidTests
         var error = Error.Forbidden("Access denied.");
         var result = Result.Fail(error);
 
-        Assert.Equal(error, result.Error!.Value);
+        Assert.Equal(error, result.Error);
     }
 
     // ── Implicit operator ─────────────────────────────────────────────────────
@@ -74,7 +74,7 @@ public sealed class ResultVoidTests
         Result result = Error.NotFound("Not found.");
 
         Assert.False(result.IsSuccess);
-        Assert.Equal(ErrorType.NotFound, result.Error!.Value.Type);
+        Assert.Equal(ErrorType.NotFound, result.Error.Type);
     }
 
     // ── SuccessKind ─────────────────────────────────────────────────────────
@@ -94,10 +94,10 @@ public sealed class ResultVoidTests
     }
 
     [Fact]
-    public void Fail_KindIsOk()
+    public void Fail_KindIsNone()
     {
         var result = Result.Fail(Error.NotFound());
-        Assert.Equal(SuccessKind.Ok, result.Kind);
+        Assert.Equal(SuccessKind.None, result.Kind);
     }
 
     // ── Equality ──────────────────────────────────────────────────────────────
@@ -127,5 +127,32 @@ public sealed class ResultVoidTests
         var b = Result.Accepted();
 
         Assert.NotEqual(a, b);
+    }
+
+    [Fact]
+    public void Equality_ObjectOverloadAndInequalityOperator()
+    {
+        var noContent = Result.NoContent();
+        object boxedNoContent = Result.NoContent();
+
+        Assert.True(noContent.Equals(boxedNoContent));
+        Assert.False(noContent.Equals((object)"NoContent"));
+        Assert.True(noContent != Result.Accepted());
+        Assert.False(noContent != Result.NoContent());
+    }
+
+    [Fact]
+    public void Equality_FailWithEqualButDistinctErrors_AreEqual()
+    {
+        Assert.Equal(Result.Fail(Error.NotFound("x")), Result.Fail(Error.NotFound("x")));
+        Assert.Equal(Result.Fail(Error.NotFound("x")).GetHashCode(), Result.Fail(Error.NotFound("x")).GetHashCode());
+        Assert.True(Result.Fail(Error.NotFound("x")) == Result.Fail(Error.NotFound("x")));
+    }
+
+    [Fact]
+    public void Size_MatchesDocs()
+    {
+        Assert.SkipUnless(IntPtr.Size == 8, "The documented size is for 64-bit.");
+        Assert.Equal(24, System.Runtime.CompilerServices.Unsafe.SizeOf<Result>());
     }
 }

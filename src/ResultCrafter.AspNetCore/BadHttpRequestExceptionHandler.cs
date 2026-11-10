@@ -1,3 +1,4 @@
+using System.Text.Json;
 using Microsoft.AspNetCore.Diagnostics;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.DependencyInjection;
@@ -54,14 +55,9 @@ internal sealed class BadHttpRequestExceptionHandler(ILogger<BadHttpRequestExcep
         // the centralised 4xx logging and is stripped before the body is serialised.
         httpContext.Response.StatusCode = badRequest.StatusCode;
 
-        var pd = new Microsoft.AspNetCore.Mvc.ProblemDetails
-        {
-            Status = badRequest.StatusCode,
-            Extensions =
-            {
-                [ProblemDetailsKeys.RcMarker] = true
-            }
-        };
+        var pd = CreateProblem(badRequest);
+        pd.Status = badRequest.StatusCode;
+        pd.Extensions[ProblemDetailsKeys.RcMarker] = true;
 
         var pds = httpContext.RequestServices.GetRequiredService<IProblemDetailsService>();
         return await pds.TryWriteAsync(new ProblemDetailsContext
@@ -69,6 +65,27 @@ internal sealed class BadHttpRequestExceptionHandler(ILogger<BadHttpRequestExcep
             HttpContext = httpContext,
             ProblemDetails = pd,
             Exception = exception
+        });
+    }
+
+    // On .NET 11 an unreadable JSON body in Production is answered with a validation problem keyed by the
+    // JSON path; ConfigureResultCrafterProblemDetails turns that into the house shape. Building the same
+    // problem here gives Development the identical body. On .NET 10 Production answers with a plain 400,
+    // so Development keeps the plain 400 too.
+    private static Microsoft.AspNetCore.Mvc.ProblemDetails CreateProblem(BadHttpRequestException badRequest)
+    {
+        if (Environment.Version.Major < 11 ||
+            badRequest.StatusCode != StatusCodes.Status400BadRequest ||
+            badRequest.InnerException is not JsonException json)
+            return new Microsoft.AspNetCore.Mvc.ProblemDetails();
+
+        // Fixed messages, not json.Message: the parser text names CLR types and byte positions.
+        var path = json.Path ?? "$";
+        return new HttpValidationProblemDetails(new Dictionary<string, string[]>
+        {
+            [path] = [path == "$"
+                ? ConfigureResultCrafterProblemDetails.InvalidJson
+                : ConfigureResultCrafterProblemDetails.InvalidValue]
         });
     }
 }

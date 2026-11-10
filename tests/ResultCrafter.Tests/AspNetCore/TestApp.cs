@@ -12,9 +12,12 @@ namespace ResultCrafter.Tests.AspNetCore;
 internal static class TestApp
 {
     public static WebApplication Build(Action<WebApplicationBuilder> configure,
-        Action<WebApplication> configureApp)
+        Action<WebApplication> configureApp,
+        string environment = "Production")
     {
-        var builder = WebApplication.CreateBuilder();
+        // Explicit environment: binding failures throw in Development and do not in Production,
+        // so tests that care must not depend on the machine's ASPNETCORE_ENVIRONMENT.
+        var builder = WebApplication.CreateBuilder(new WebApplicationOptions { EnvironmentName = environment });
         builder.WebHost.UseTestServer();
         builder.Logging.ClearProviders();
 

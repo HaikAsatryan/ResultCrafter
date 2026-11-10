@@ -1,4 +1,4 @@
-﻿namespace ResultCrafter.Tests.Core;
+namespace ResultCrafter.Tests.Core;
 
 public sealed class ResultOfTTests
 {
@@ -123,7 +123,8 @@ public sealed class ResultOfTTests
         var error = Error.NotFound("Item not found.");
         var result = Result<string>.Fail(error);
 
-        Assert.Equal(error, result.Error!.Value);
+        Assert.Equal(error, result.Error);
+        Assert.Equal(SuccessKind.None, result.Kind);
     }
 
     [Fact]
@@ -151,7 +152,7 @@ public sealed class ResultOfTTests
         Result<string> result = Error.NotFound("Not found.");
 
         Assert.False(result.IsSuccess);
-        Assert.Equal(ErrorType.NotFound, result.Error!.Value.Type);
+        Assert.Equal(ErrorType.NotFound, result.Error.Type);
     }
 
     // ── Equality ──────────────────────────────────────────────────────────────
@@ -174,6 +175,29 @@ public sealed class ResultOfTTests
         Assert.NotEqual(a, b);
     }
 
+    [Fact]
+    public void Equality_DifferingInOneMember_AreNotEqual()
+    {
+        // Each pair matches in every member but one, so each member's comparison has to count on its own.
+        Assert.NotEqual(Result<int>.Ok(1), Result<int>.Ok(2));
+        Assert.NotEqual(Result<int>.Ok(1), Result<int>.Accepted(1));
+        Assert.NotEqual(Result<int>.Created("/a", 1), Result<int>.Created("/b", 1));
+        Assert.NotEqual(Result<int>.Fail(Error.NotFound()), Result<int>.Fail(Error.Conflict()));
+    }
+
+    [Fact]
+    public void Equality_ObjectOverloadAndInequalityOperator()
+    {
+        var one = Result<int>.Ok(1);
+        var two = Result<int>.Ok(2);
+        object boxedOne = Result<int>.Ok(1);
+
+        Assert.True(one.Equals(boxedOne));
+        Assert.False(one.Equals((object)1));
+        Assert.True(one != two);
+        Assert.False(one != Result<int>.Ok(1));
+    }
+
     // ── Map ──────────────────────────────────────────────────────────────────
 
     [Fact]
@@ -194,7 +218,7 @@ public sealed class ResultOfTTests
         var mapped = result.Map(x => x.ToString());
 
         Assert.False(mapped.IsSuccess);
-        Assert.Equal(error, mapped.Error!.Value);
+        Assert.Equal(error, mapped.Error);
     }
 
     [Fact]
@@ -228,5 +252,41 @@ public sealed class ResultOfTTests
     {
         var result = Result<int>.Ok(42);
         Assert.Throws<ArgumentNullException>(() => result.Map<string>(null!));
+    }
+
+    [Fact]
+    public void Map_SelectorReturnsNull_Throws()
+    {
+        // A success Result<T> never carries null, so Map cannot produce one either.
+        var result = Result<int>.Ok(42);
+        Assert.Throws<InvalidOperationException>(() => result.Map<string>(_ => null!));
+    }
+
+    [Fact]
+    public void Equality_FailWithEqualButDistinctErrors_AreEqual()
+    {
+        Assert.Equal(Result<int>.Fail(Error.NotFound("x")), Result<int>.Fail(Error.NotFound("x")));
+        Assert.Equal(Result<int>.Fail(Error.NotFound("x")).GetHashCode(),
+            Result<int>.Fail(Error.NotFound("x")).GetHashCode());
+        Assert.True(Result<int>.Fail(Error.NotFound("x")) == Result<int>.Fail(Error.NotFound("x")));
+    }
+
+    [Fact]
+    public void NullValue_Throws_ForEveryFactoryAndConversion()
+    {
+        Assert.Throws<ArgumentNullException>(() => Result<string>.Created("/items/1", null!));
+        Assert.Throws<ArgumentNullException>(() => Result<string>.Accepted(null!));
+        Assert.Throws<ArgumentNullException>(() =>
+        {
+            Result<string> result = (string)null!;
+            return result;
+        });
+    }
+
+    [Fact]
+    public void Size_MatchesDocs()
+    {
+        Assert.SkipUnless(IntPtr.Size == 8, "The documented sizes are for 64-bit.");
+        Assert.Equal(32, System.Runtime.CompilerServices.Unsafe.SizeOf<Result<string>>());
     }
 }

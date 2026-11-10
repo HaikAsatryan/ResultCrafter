@@ -1,14 +1,14 @@
-﻿using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using ResultCrafter.AspNetCore.Mvc;
 
 namespace ResultCrafter.Demo;
 
 /// <summary>
-///     MVC controller mirroring every scenario covered by <see cref="DemoEndpoints" />.
-///     Demonstrates that ResultCrafter's controller integration produces the same
-///     RFC 9457 ProblemDetails responses, the same structured logging, and the same
-///     OpenAPI documentation as the Minimal API path — just with MVC attribute syntax.
+///     MVC controller mirroring the CRUD, auth and crash scenarios of <see cref="DemoEndpoints" />, with the same
+///     RFC 9457 ProblemDetails responses, structured logging and OpenAPI documentation as the Minimal API path.
+///     One difference: create errors come from <c>ValidateToResultAsync</c> in the service, so their keys keep
+///     FluentValidation's names (<c>Name</c>), while the Minimal API filter converts them (<c>name</c>).
 /// </summary>
 [ApiController]
 [Route("api/ctrl/items")]
@@ -17,7 +17,7 @@ public sealed class ItemsController(ItemService svc) : ControllerBase
 {
     // ── GET /api/ctrl/items/{id} ──────────────────────────────────────────────
 
-    /// <summary>Get item by ID — 200 Ok or 404 NotFound.</summary>
+    /// <summary>Get item by ID: 200 Ok or 404 NotFound.</summary>
     [HttpGet("{id:int}")]
     [ProducesResponseType<ItemDto>(StatusCodes.Status200OK)]
     [ProducesNotFound]
@@ -28,7 +28,7 @@ public sealed class ItemsController(ItemService svc) : ControllerBase
 
     // ── POST /api/ctrl/items ──────────────────────────────────────────────────
 
-    /// <summary>Create item — 201 Created or 400 BadRequest (field errors).</summary>
+    /// <summary>Create item: 201 Created or 400 BadRequest (field errors).</summary>
     [HttpPost]
     [ProducesResponseType<ItemDto>(StatusCodes.Status201Created)]
     [ProducesBadRequest]
@@ -39,7 +39,7 @@ public sealed class ItemsController(ItemService svc) : ControllerBase
 
     // ── PUT /api/ctrl/items/{id} ──────────────────────────────────────────────
 
-    /// <summary>Update item — 200 Ok, 404 NotFound, 400 BadRequest, or 409 Conflict / ConcurrencyConflict.</summary>
+    /// <summary>Update item: 200 Ok, 404 NotFound, 400 BadRequest, or 409 Conflict / ConcurrencyConflict.</summary>
     [HttpPut("{id:int}")]
     [ProducesResponseType<ItemDto>(StatusCodes.Status200OK)]
     [ProducesNotFound]
@@ -52,7 +52,7 @@ public sealed class ItemsController(ItemService svc) : ControllerBase
 
     // ── DELETE /api/ctrl/items/{id} ───────────────────────────────────────────
 
-    /// <summary>Delete item — 204 NoContent or 404 NotFound.</summary>
+    /// <summary>Delete item: 204 NoContent or 404 NotFound.</summary>
     [HttpDelete("{id:int}")]
     [ProducesResponseType(StatusCodes.Status204NoContent)]
     [ProducesNotFound]
@@ -63,7 +63,7 @@ public sealed class ItemsController(ItemService svc) : ControllerBase
 
     // ── POST /api/ctrl/items/{id}/reserve ─────────────────────────────────────
 
-    /// <summary>Reserve item — 202 Accepted&lt;ItemDto&gt;, 404 NotFound, or 403 Forbidden.</summary>
+    /// <summary>Reserve item: 202 Accepted&lt;ItemDto&gt;, 404 NotFound, or 403 Forbidden.</summary>
     [HttpPost("{id:int}/reserve")]
     [ProducesResponseType<ItemDto>(StatusCodes.Status202Accepted)]
     [ProducesNotFound]
@@ -75,7 +75,7 @@ public sealed class ItemsController(ItemService svc) : ControllerBase
 
     // ── POST /api/ctrl/items/bulk-delete ──────────────────────────────────────
 
-    /// <summary>Queue bulk deletion — 202 Accepted (no body) or 400 BadRequest.</summary>
+    /// <summary>Queue bulk deletion: 202 Accepted (no body) or 400 BadRequest.</summary>
     [HttpPost("bulk-delete")]
     [ProducesResponseType(StatusCodes.Status202Accepted)]
     [ProducesBadRequest]
@@ -87,7 +87,7 @@ public sealed class ItemsController(ItemService svc) : ControllerBase
     // ── GET /api/ctrl/items/admin ─────────────────────────────────────────────
 
     /// <summary>
-    ///     Admin list — 200 Ok, 401 Unauthorized (missing key), or 403 Forbidden (non-admin role).
+    ///     Admin list: 200 Ok, 401 Unauthorized (missing key), or 403 Forbidden (non-admin role).
     ///     Pass headers:  X-Api-Key: any-value   X-Role: admin
     /// </summary>
     [HttpGet("admin")]
@@ -105,13 +105,13 @@ public sealed class ItemsController(ItemService svc) : ControllerBase
 
     /// <summary>
     ///     Throws an unhandled <see cref="InvalidOperationException" /> to demonstrate the
-    ///     500 <c>IExceptionHandler</c> path — same handler as Minimal API.
+    ///     500 <c>IExceptionHandler</c> path: same handler as Minimal API.
     /// </summary>
     [HttpGet("crash")]
     public IActionResult Crash()
     {
         throw new InvalidOperationException(
-            "Simulated unhandled exception from a controller — watch the logs.");
+            "Simulated unhandled exception from a controller: watch the logs.");
     }
 
     /// <summary>
@@ -123,7 +123,7 @@ public sealed class ItemsController(ItemService svc) : ControllerBase
     public IActionResult DbCrash()
     {
         throw new DbUpdateConcurrencyException(
-            "Simulated EF Core concurrency conflict — intercepted as 409 by ResultCrafterEfCore.",
+            "Simulated EF Core concurrency conflict: intercepted as 409 by ResultCrafterEfCore.",
             []);
     }
 }

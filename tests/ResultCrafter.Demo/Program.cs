@@ -2,7 +2,6 @@ using ResultCrafter.AspNetCore;
 using ResultCrafter.AspNetCore.EfCore;
 using ResultCrafter.AspNetCore.FluentValidation;
 using ResultCrafter.Demo;
-using ResultCrafter.MediatR;
 using Scalar.AspNetCore;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -22,12 +21,6 @@ builder.Services.AddControllers();
 
 builder.Services.AddSingleton<ItemService>();
 
-builder.Services.AddMediatR(cfg =>
-{
-    cfg.RegisterServicesFromAssemblyContaining<Program>();
-    cfg.AddResultCrafterValidation();
-});
-
 var app = builder.Build();
 
 app.UseResultCrafter(); // registers UseExceptionHandler() + UseStatusCodePages()
@@ -40,11 +33,6 @@ app.MapGet("/", () => Results.Redirect("/scalar"));
 app.MapGroup("/api")
     .WithTags("Items")
     .MapDemoEndpoints();
-
-// MediatR + FluentValidation pipeline demo endpoints
-app.MapGroup("/api/mediatr")
-    .WithTags("MediatR Items")
-    .MapMediatRDemoEndpoints();
 
 app.MapControllers();
 

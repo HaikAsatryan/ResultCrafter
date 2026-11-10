@@ -1,4 +1,4 @@
-﻿<Project Sdk="Microsoft.NET.Sdk">
+<Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
     <Description>ASP.NET Core integration for ResultCrafter: RFC 9457 ProblemDetails, structured logging, IExceptionHandler pipeline, and Minimal API/MVC result mapping.</Description>

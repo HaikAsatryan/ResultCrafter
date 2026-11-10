@@ -1,14 +1,14 @@
-### ResultCrafter Demo — HTTP Requests
-### Base URL: https://localhost:5001
+### ResultCrafter Demo: HTTP Requests
+### Base URL: http://localhost:5080 (see Properties/launchSettings.json)
 ### Run the demo project, then execute any request in your IDE.
 
-@base = https://localhost:80/api
+@base = http://localhost:5080/api
 
 # ============================================================
 # MINIMAL API ENDPOINTS  (/api/items/*)
 # ============================================================
 
-### [200] Get existing item — create one first via POST /items
+### [200] Get existing item: create one first via POST /items
 GET {{base}}/items/1
 Accept: application/json
 
@@ -20,7 +20,7 @@ Accept: application/json
 
 ###
 
-### [201] Create item — valid request
+### [201] Create item: valid request
 POST {{base}}/items
 Content-Type: application/json
 
@@ -32,7 +32,7 @@ Content-Type: application/json
 
 ###
 
-### [400] Create item — validation failure (field errors)
+### [400] Create item: validation failure (field errors)
 POST {{base}}/items
 Content-Type: application/json
 
@@ -44,7 +44,7 @@ Content-Type: application/json
 
 ###
 
-### [200] Update item — valid request (use version=1 after creating)
+### [200] Update item: valid request (use version=1 after creating)
 PUT {{base}}/items/1
 Content-Type: application/json
 
@@ -57,7 +57,7 @@ Content-Type: application/json
 
 ###
 
-### [400] Update item — validation failure (field errors)
+### [400] Update item: validation failure (field errors)
 PUT {{base}}/items/1
 Content-Type: application/json
 
@@ -70,7 +70,7 @@ Content-Type: application/json
 
 ###
 
-### [409] Update item — concurrency conflict (stale version)
+### [409] Update item: concurrency conflict (stale version)
 PUT {{base}}/items/1
 Content-Type: application/json
 
@@ -83,7 +83,7 @@ Content-Type: application/json
 
 ###
 
-### [409] Update item — name conflict (same name as another item)
+### [409] Update item: name conflict (same name as another item)
 # First create a second item, then try to rename item 1 to match it
 PUT {{base}}/items/1
 Content-Type: application/json
@@ -109,7 +109,7 @@ Accept: application/json
 
 ###
 
-### [202] Reserve item — background workflow queued, poll GET /items/{id} to confirm
+### [202] Reserve item: background workflow queued, poll GET /items/{id} to confirm
 POST {{base}}/items/1/reserve
 Accept: application/json
 
@@ -127,7 +127,7 @@ Accept: application/json
 
 ###
 
-### [202] Bulk delete — valid request (no response body)
+### [202] Bulk delete: valid request (no response body)
 POST {{base}}/items/bulk-delete
 Content-Type: application/json
 
@@ -141,7 +141,7 @@ Content-Type: application/json
 
 ###
 
-### [400] Bulk delete — empty list (plain detail, no errors dict)
+### [400] Bulk delete: empty list (plain detail, no errors dict)
 POST {{base}}/items/bulk-delete
 Content-Type: application/json
 
@@ -151,7 +151,7 @@ Content-Type: application/json
 
 ###
 
-### [400] Bulk delete — invalid IDs (structured errors dict)
+### [400] Bulk delete: invalid IDs (structured errors dict)
 POST {{base}}/items/bulk-delete
 Content-Type: application/json
 
@@ -165,7 +165,7 @@ Content-Type: application/json
 
 ###
 
-### [200] Admin list — authenticated and authorized
+### [200] Admin list: authenticated and authorized
 GET {{base}}/items/admin
 Accept: application/json
 X-Api-Key: any-value-works
@@ -173,13 +173,13 @@ X-Role: admin
 
 ###
 
-### [401] Admin list — missing API key
+### [401] Admin list: missing API key
 GET {{base}}/items/admin
 Accept: application/json
 
 ###
 
-### [403] Admin list — wrong role
+### [403] Admin list: wrong role
 GET {{base}}/items/admin
 Accept: application/json
 X-Api-Key: any-value-works
@@ -187,7 +187,7 @@ X-Role: viewer
 
 ###
 
-### [500] Unhandled exception demo — ResultCrafterExceptionHandler converts to 500 ProblemDetails
+### [500] Unhandled exception demo: ResultCrafterExceptionHandler converts to 500 ProblemDetails
 # Watch the server logs: the full exception is logged at Error level.
 # The response detail is sanitized in production, full in dev/staging.
 GET {{base}}/items/crash
@@ -195,10 +195,16 @@ Accept: application/json
 
 ###
 
-### [409] DbUpdateConcurrencyException demo — EfCore handler intercepts as 409
-# The EfCoreConcurrencyExceptionHandler fires BEFORE the generic 500 handler.
-# This demonstrates that DbUpdateConcurrencyException never becomes a 500.
+### [409] DbUpdateConcurrencyException demo: EfCore handler intercepts as 409
+# The EfCoreConcurrencyExceptionHandler fires BEFORE the generic 500 handler, so an optimistic-concurrency
+# conflict never becomes a 500. (A deadlock or serialization failure, SQLSTATE 40P01/40001, still does.)
 GET {{base}}/items/db-crash
+Accept: application/json
+
+###
+
+### [429] Rate limited: Retry-After: 30 header, plus "limit" and "window" members added with Error.With()
+GET {{base}}/items/limited
 Accept: application/json
 
 ###
@@ -206,10 +212,10 @@ Accept: application/json
 
 # ============================================================
 # MVC CONTROLLER ENDPOINTS  (/api/ctrl/items/*)
-# Same ItemService, same results — different routing + MVC syntax.
+# Same ItemService, same results: different routing + MVC syntax.
 # ============================================================
 
-@ctrl = https://localhost:5001/api/ctrl
+@ctrl = http://localhost:5080/api/ctrl
 
 ### [200] Get existing item (controller)
 GET {{ctrl}}/items/1
@@ -235,7 +241,7 @@ Content-Type: application/json
 
 ###
 
-### [400] Create item — validation failure (controller)
+### [400] Create item: validation failure (controller)
 POST {{ctrl}}/items
 Content-Type: application/json
 
@@ -260,7 +266,7 @@ Content-Type: application/json
 
 ###
 
-### [409] Update item — concurrency conflict (controller)
+### [409] Update item: concurrency conflict (controller)
 PUT {{ctrl}}/items/1
 Content-Type: application/json
 
@@ -299,7 +305,7 @@ Content-Type: application/json
 
 ###
 
-### [400] Bulk delete — empty list (controller)
+### [400] Bulk delete: empty list (controller)
 POST {{ctrl}}/items/bulk-delete
 Content-Type: application/json
 
@@ -317,13 +323,13 @@ X-Role: admin
 
 ###
 
-### [401] Admin list — missing API key (controller)
+### [401] Admin list: missing API key (controller)
 GET {{ctrl}}/items/admin
 Accept: application/json
 
 ###
 
-### [403] Admin list — wrong role (controller)
+### [403] Admin list: wrong role (controller)
 GET {{ctrl}}/items/admin
 Accept: application/json
 X-Api-Key: any-value-works
@@ -331,13 +337,13 @@ X-Role: viewer
 
 ###
 
-### [500] Unhandled exception demo (controller) — same IExceptionHandler as Minimal API
+### [500] Unhandled exception demo (controller): same IExceptionHandler as Minimal API
 GET {{ctrl}}/items/crash
 Accept: application/json
 
 ###
 
-### [409] DbUpdateConcurrencyException demo (controller) — same EfCore handler
+### [409] DbUpdateConcurrencyException demo (controller): same EfCore handler
 GET {{ctrl}}/items/db-crash
 Accept: application/json
 

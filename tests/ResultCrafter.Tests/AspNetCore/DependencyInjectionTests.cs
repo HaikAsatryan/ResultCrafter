@@ -1,4 +1,4 @@
-﻿using Microsoft.AspNetCore.Builder;
+using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Diagnostics;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.FileProviders;
@@ -41,7 +41,7 @@ public sealed class DependencyInjectionTests
     [Fact]
     public void AddResultCrafter_RegistersExceptionHandler()
     {
-        // IHostEnvironment is required by ResultCrafterExceptionHandler — register a stub.
+        // IHostEnvironment is required by ResultCrafterExceptionHandler: register a stub.
         var services = BuildServices(true);
 
         var provider = services.BuildServiceProvider();
@@ -74,9 +74,21 @@ public sealed class DependencyInjectionTests
     }
 
     [Fact]
+    public void AddResultCrafterEfCore_CalledTwice_RegistersOneHandler()
+    {
+        var services = BuildServices();
+
+        services.AddResultCrafterEfCore();
+        services.AddResultCrafterEfCore();
+
+        // BadHttpRequest handler + one EfCore handler + generic 500 handler
+        Assert.Equal(3, services.Count(d => d.ServiceType == typeof(IExceptionHandler)));
+    }
+
+    [Fact]
     public void AddResultCrafterEfCore_RegistersThreeExceptionHandlers()
     {
-        // IHostEnvironment is required by ResultCrafterExceptionHandler — register a stub.
+        // IHostEnvironment is required by ResultCrafterExceptionHandler: register a stub.
         var services = BuildServices(true);
         services.AddResultCrafterEfCore();
 
@@ -131,6 +143,38 @@ public sealed class DependencyInjectionTests
         var validator = new ResultCrafterStartupValidator(marker);
 
         await validator.StartAsync(CancellationToken.None);
+    }
+
+    // The tests above build the validator by hand; these prove AddResultCrafter() registers it with the host.
+    [Fact]
+    public async Task App_WithoutUseResultCrafter_FailsAtStartup()
+    {
+        await using var app = TestApp.Build(b => b.Services.AddResultCrafter(), _ => { });
+
+        var ex = await Assert.ThrowsAsync<InvalidOperationException>(() =>
+            app.StartAsync(TestContext.Current.CancellationToken));
+
+        Assert.Contains("UseResultCrafter", ex.Message, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task App_WithUseResultCrafter_StartsAndStops()
+    {
+        await using var app = TestApp.Build(b => b.Services.AddResultCrafter(), a => a.UseResultCrafter());
+
+        await app.StartAsync(TestContext.Current.CancellationToken);
+        await app.StopAsync(TestContext.Current.CancellationToken);
+    }
+
+    // ── AddResultCrafter called twice ─────────────────────────────────────────
+
+    [Fact]
+    public void AddResultCrafter_CalledTwice_RegistersOneProblemWriter()
+    {
+        var services = BuildServices();
+        services.AddResultCrafter();
+
+        Assert.Single(services, d => d.ImplementationType == typeof(ResultCrafterProblemDetailsWriter));
     }
 
     // ── Helpers ────────────────────────────────────────────────────────────────

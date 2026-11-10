@@ -4,8 +4,8 @@ using System.Diagnostics.CodeAnalysis;
 namespace ResultCrafter;
 
 /// <summary>
-///     Discriminated union representing the outcome of a void operation — one that produces
-///     no value on the success path.
+///     The outcome of a void operation, one that produces no value on success: either success or an
+///     <see cref="Error" />.
 /// </summary>
 /// <remarks>
 ///     Use <see cref="Result{T}" /> when the success path returns a value.
@@ -13,47 +13,56 @@ namespace ResultCrafter;
 ///     <list type="bullet">
 ///         <item><see cref="NoContent" /> → 204 No Content</item>
 ///         <item><see cref="Accepted" /> → 202 Accepted (optionally with a poll URL)</item>
-///         <item><see cref="Fail" /> / implicit cast from <see cref="Error" /> → error response</item>
+///         <item><see cref="Fail" /> / implicit conversion from <see cref="Error" /> → error response</item>
 ///     </list>
 ///     <para>
-///         A <c>default(Result)</c> instance bypasses these factories and reports success with
-///         <see cref="SuccessKind.Ok" /> (a state no factory produces); treat default instances as
-///         invalid and use <see cref="NoContent" /> for value-less success.
+///         <c>default(Result)</c> skips every factory, so it is neither a success nor a failure.
+///         <see cref="IsSuccess" />, <see cref="Match{TOut}" /> and the ASP.NET Core <c>To*Result</c> methods
+///         throw <see cref="InvalidOperationException" /> on it.
 ///     </para>
 /// </remarks>
 [DebuggerDisplay("{DebuggerDisplay,nq}")]
 public readonly struct Result : IEquatable<Result>
 {
     /// <summary>
-    ///     The error produced by this operation. Only meaningful when
-    ///     <see cref="IsSuccess" /> is <see langword="false" />.
+    ///     The error produced by this operation. Non-null whenever <see cref="IsSuccess" /> is
+    ///     <see langword="false" />; <see langword="null" /> on success.
     /// </summary>
     public Error? Error { get; }
 
     /// <summary>
-    ///     The HTTP success variant this result maps to.
-    ///     <see cref="SuccessKind.Ok" /> on failure paths (CLR default).
+    ///     The HTTP success variant this result maps to. <see cref="SuccessKind.None" /> on failure.
     /// </summary>
     public SuccessKind Kind { get; }
 
     /// <summary>
-    ///     Optional poll URL for <see cref="Accepted" /> results. <see langword="null" />
-    ///     for all other outcomes.
+    ///     Optional poll URL for <see cref="Accepted" /> results, sent as the HTTP <c>Location</c> header.
+    ///     <see langword="null" /> for all other outcomes.
     /// </summary>
-    public string? AcceptedLocation { get; }
+    public string? Location { get; }
 
     /// <summary>
     ///     <see langword="true" /> when the operation succeeded;
     ///     <see langword="false" /> when it produced an <see cref="Error" />.
     /// </summary>
+    /// <exception cref="InvalidOperationException">Thrown on a <c>default(Result)</c> instance.</exception>
     [MemberNotNullWhen(false, nameof(Error))]
-    public bool IsSuccess => Error is null;
+    public bool IsSuccess
+    {
+        get
+        {
+            if (Error is not null) return false;
+            if (Kind == SuccessKind.None) throw DefaultInstance();
 
-    private Result(Error? error, SuccessKind kind, string? acceptedLocation)
+            return true;
+        }
+    }
+
+    private Result(Error? error, SuccessKind kind, string? location)
     {
         Error = error;
         Kind = kind;
-        AcceptedLocation = acceptedLocation;
+        Location = location;
     }
 
     /// <summary>Creates a 204 No Content success result.</summary>
@@ -72,15 +81,19 @@ public readonly struct Result : IEquatable<Result>
     }
 
     /// <summary>Creates a failure result carrying the given <paramref name="error" />.</summary>
+    /// <exception cref="ArgumentNullException">Thrown when <paramref name="error" /> is <see langword="null" />.</exception>
     public static Result Fail(Error error)
     {
-        return new Result(error, SuccessKind.Ok, null);
+        ArgumentNullException.ThrowIfNull(error);
+
+        return new Result(error, SuccessKind.None, null);
     }
 
     /// <summary>
     ///     Implicitly wraps <paramref name="error" /> as a failure result.
     ///     Enables <c>return Error.NotFound();</c> in methods returning <see cref="Result" />.
     /// </summary>
+    /// <exception cref="ArgumentNullException">Thrown when <paramref name="error" /> is <see langword="null" />.</exception>
     public static implicit operator Result(Error error)
     {
         return Fail(error);
@@ -93,22 +106,34 @@ public readonly struct Result : IEquatable<Result>
     /// <typeparam name="TOut">The type both branches produce.</typeparam>
     /// <param name="onSuccess">Invoked when the operation succeeded.</param>
     /// <param name="onFailure">Invoked with <see cref="Error" /> when the operation failed.</param>
+    /// <exception cref="InvalidOperationException">Thrown on a <c>default</c> instance.</exception>
     public TOut Match<TOut>(Func<TOut> onSuccess, Func<Error, TOut> onFailure)
     {
         ArgumentNullException.ThrowIfNull(onSuccess);
         ArgumentNullException.ThrowIfNull(onFailure);
 
-        return IsSuccess ? onSuccess() : onFailure(Error.Value);
+        return IsSuccess ? onSuccess() : onFailure(Error);
     }
 
-    private string DebuggerDisplay => IsSuccess
-        ? $"Success({Kind})"
-        : $"Failure({Error.Value})";
+    private static InvalidOperationException DefaultInstance()
+    {
+        return new InvalidOperationException(
+            "This is a default(Result), which is invalid: no factory created it, so it is neither a success " +
+            "nor a failure. Create results with Result.NoContent, Result.Accepted or Result.Fail, or the " +
+            "implicit conversion from an Error.");
+    }
+
+    // Reads fields directly: the debugger must be able to show a default instance without throwing.
+    private string DebuggerDisplay => Error is not null
+        ? $"Failure({Error})"
+        : Kind == SuccessKind.None
+            ? "Invalid(default)"
+            : $"Success({Kind})";
 
     /// <inheritdoc />
     public bool Equals(Result other)
     {
-        return Error == other.Error && Kind == other.Kind && AcceptedLocation == other.AcceptedLocation;
+        return Error == other.Error && Kind == other.Kind && Location == other.Location;
     }
 
     /// <inheritdoc />
@@ -120,16 +145,16 @@ public readonly struct Result : IEquatable<Result>
     /// <inheritdoc />
     public override int GetHashCode()
     {
-        return HashCode.Combine(Error, Kind, AcceptedLocation);
+        return HashCode.Combine(Error, Kind, Location);
     }
 
-    /// <inheritdoc />
+    /// <summary>Returns <see langword="true" /> when <paramref name="left" /> and <paramref name="right" /> are equal.</summary>
     public static bool operator ==(Result left, Result right)
     {
         return left.Equals(right);
     }
 
-    /// <inheritdoc />
+    /// <summary>Returns <see langword="true" /> when <paramref name="left" /> and <paramref name="right" /> are not equal.</summary>
     public static bool operator !=(Result left, Result right)
     {
         return !left.Equals(right);

@@ -1,12 +1,12 @@
-﻿<Project Sdk="Microsoft.NET.Sdk">
+<Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
     <!-- Core primitives live in the flat root ResultCrafter namespace (files sit at the project
          root), so RootNamespace must be ResultCrafter, not the default project-name ResultCrafter.Core.
          Without this, IDE0130/dotnet_style_namespace_match_folder flags every root file. -->
     <RootNamespace>ResultCrafter</RootNamespace>
-    <Description>Minimal Result pattern primitives for modern .NET: Result, and Error as readonly struct types. No ASP.NET Core dependency.</Description>
-    <PackageTags>result;result-pattern;error;readonly-struct;csharp;dotnet;domain;application</PackageTags>
+    <Description>Minimal Result pattern primitives for modern .NET: Result&lt;T&gt; and Result as readonly structs, Error as a sealed class with value equality. No ASP.NET Core dependency.</Description>
+    <PackageTags>result;result-pattern;error;readonly-struct;csharp;dotnet;domain;application;nativeaot</PackageTags>
   </PropertyGroup>
 
 </Project>

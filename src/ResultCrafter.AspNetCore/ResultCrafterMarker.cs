@@ -1,4 +1,4 @@
-﻿namespace ResultCrafter.AspNetCore;
+namespace ResultCrafter.AspNetCore;
 
 /// <summary>
 ///     Sentinel registered by <see cref="ServiceCollectionExtensions.AddResultCrafter" />.

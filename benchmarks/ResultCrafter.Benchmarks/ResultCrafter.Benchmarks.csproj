@@ -1,0 +1,24 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <!-- Measured on .NET 11 only. The plural property replaces the net10.0 default from Directory.Build.props. -->
+    <TargetFrameworks>net11.0</TargetFrameworks>
+    <IsPackable>false</IsPackable>
+    <GenerateDocumentationFile>false</GenerateDocumentationFile>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Ardalis.Result" Version="10.1.0"/>
+    <!-- 0.15.8, the latest stable, cannot run on .NET 11: its SDK check throws for an unknown runtime. -->
+    <PackageReference Include="BenchmarkDotNet" Version="0.16.0-preview.2"/>
+    <PackageReference Include="ErrorOr" Version="2.1.1"/>
+    <PackageReference Include="FluentResults" Version="4.0.0"/>
+    <PackageReference Include="Microsoft.AspNetCore.TestHost" Version="11.0.0"/>
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\ResultCrafter.AspNetCore\ResultCrafter.AspNetCore.csproj"/>
+  </ItemGroup>
+
+</Project>
