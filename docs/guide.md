@@ -566,6 +566,11 @@ failure. Each message also carries a [field error code](#field-error-codes):
   `ActualScale`), display names (`PropertyName`, `PropertyPath`, `ComparisonProperty`), the value of another property
   a rule compares with (`Equal(x => x.Password)`), and custom placeholders.
 
+FluentValidation's default English messages, which go out in `errors`, can repeat the caller's input:
+`Equal(x => x.Password)` prints the password, and `InclusiveBetween`, `ExclusiveBetween` and `IsInEnum` print the
+attempted value. The bridge passes messages through unchanged. On rules over secret fields, set your own message,
+for example `.Equal(x => x.Password).WithMessage("'{PropertyName}' must match '{ComparisonProperty}'.")`.
+
 Property names are used as-is from FluentValidation. If you call it directly and want a specific casing
 convention, configure `ValidatorOptions.Global.PropertyNameResolver` in your composition root. When you use the
 [endpoint filter](#endpoint-filter-validation) below, key casing is aligned to your JSON settings for you.

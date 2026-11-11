@@ -296,6 +296,45 @@ public sealed class ValidatorExtensionsTests
         Assert.Contains("'20'", fieldError.Message);
     }
 
+    [Fact]
+    public async Task ValidateToResultAsync_DefaultMessages_RepeatInput()
+    {
+        // Pins the guide's warning: the bridge keeps FluentValidation's messages, and the defaults repeat input.
+        var error = await new SecretsValidator(customMessage: false).ValidateToResultAsync(
+            new Secrets("hunter2", "hunter3", 42, (Level)7), TestContext.Current.CancellationToken);
+
+        Assert.Contains("hunter2", Assert.Single(error!.Errors!["ConfirmPassword"]));
+        Assert.Contains("42", Assert.Single(error.Errors["Score"]));
+        Assert.Contains("7", Assert.Single(error.Errors["Level"]));
+    }
+
+    [Fact]
+    public async Task ValidateToResultAsync_ComparisonPropertyMessage_HidesTheOtherValue()
+    {
+        var error = await new SecretsValidator(customMessage: true).ValidateToResultAsync(
+            new Secrets("hunter2", "hunter3", 1, Level.Low), TestContext.Current.CancellationToken);
+
+        Assert.Equal("'Confirm Password' must match 'Password'.", Assert.Single(error!.Errors!["ConfirmPassword"]));
+    }
+
+    private sealed record Secrets(string Password, string ConfirmPassword, int Score, Level Level);
+
+    private enum Level
+    {
+        Low = 1
+    }
+
+    private sealed class SecretsValidator : AbstractValidator<Secrets>
+    {
+        public SecretsValidator(bool customMessage)
+        {
+            var confirm = RuleFor(x => x.ConfirmPassword).Equal(x => x.Password);
+            if (customMessage) confirm.WithMessage("'{PropertyName}' must match '{ComparisonProperty}'.");
+            RuleFor(x => x.Score).InclusiveBetween(1, 10);
+            RuleFor(x => x.Level).IsInEnum();
+        }
+    }
+
     private static Limits ValidLimits()
     {
         return new Limits("abc", "abc", "abcd", 12.34m, 5, 0, 10);
