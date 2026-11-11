@@ -136,6 +136,18 @@ public sealed class ErrorTests
     }
 
     [Fact]
+    public void BadRequest_WithNullMessage_ThrowsArgumentException()
+    {
+        var errors = new Dictionary<string, string[]>
+        {
+            ["field"] = ["Field is required.", null!]
+        };
+
+        var exception = Assert.Throws<ArgumentException>(() => Error.BadRequest(errors));
+        Assert.Contains("null message", exception.Message);
+    }
+
+    [Fact]
     public void BadRequest_WithEmptyDictionary_ThrowsArgumentException()
     {
         Assert.Throws<ArgumentException>(() => Error.BadRequest(new Dictionary<string, string[]>()));

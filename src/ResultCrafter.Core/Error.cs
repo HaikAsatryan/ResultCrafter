@@ -182,7 +182,7 @@ public sealed class Error : IEquatable<Error>
     /// <exception cref="ArgumentNullException">Thrown when <paramref name="errors" /> is <see langword="null" />.</exception>
     /// <exception cref="ArgumentException">
     ///     Thrown when <paramref name="errors" /> is empty, contains a null or whitespace key, or maps a key to a
-    ///     null message array.
+    ///     null message array or an array with a null message.
     /// </exception>
     public static Error BadRequest(IReadOnlyDictionary<string, string[]> errors, string? detail = null)
     {
@@ -199,6 +199,9 @@ public sealed class Error : IEquatable<Error>
             ArgumentException.ThrowIfNullOrWhiteSpace(key);
             if (value is null)
                 throw new ArgumentException($"Field '{key}' maps to a null message array.", nameof(errors));
+            // A null message would go out as JSON null, which the documented errors schema does not allow.
+            if (Array.Exists(value, message => message is null))
+                throw new ArgumentException($"Field '{key}' holds a null message.", nameof(errors));
 
             // Source keys that differ only by case land on one entry; merge their messages instead of
             // silently dropping the earlier ones.
