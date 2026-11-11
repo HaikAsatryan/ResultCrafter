@@ -65,9 +65,6 @@ app.UseResultCrafter();
 
 That is the whole setup. It needs .NET 10 or later.
 
-ResultCrafter ships only as `ResultCrafter.*` packages on nuget.org and as source in this repository. There is no ZIP
-download: a "ResultCrafter" ZIP anywhere else is not from this project.
-
 ## What you get
 
 - **The right status for every error.** Nine error types: 400, 401, 403, 404, 409 (conflict and concurrency), 410,
@@ -125,6 +122,8 @@ the exception pipeline, the logging and the OpenAPI declarations come with it.
   LanguageExt.
 - [Design and performance](docs/design.md): why the types look the way they do, and what a 404 costs: 5.2 µs per
   request returned, 16.6 µs thrown.
+- [Return or throw?](https://dev.to/haikasatryan/return-or-throw-result-pattern-vs-exceptions-in-aspnet-core-1nl5):
+  the article on when to return an error and when to throw it, with pros, cons and numbers.
 - [Contributing](CONTRIBUTING.md): build, test, and how to propose a change.
 
 ## Why I built it

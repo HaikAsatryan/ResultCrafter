@@ -26,4 +26,5 @@ Register with `builder.Services.AddResultCrafter()` and `app.UseResultCrafter()`
 
 - [Design and performance](https://raw.githubusercontent.com/HaikAsatryan/ResultCrafter/main/docs/design.md): why the types look the way they do.
 - [How it compares](https://raw.githubusercontent.com/HaikAsatryan/ResultCrafter/main/docs/comparison.md): against Ardalis.Result, ErrorOr, FluentResults, OneOf and LanguageExt.
+- [Return or throw?](https://dev.to/haikasatryan/return-or-throw-result-pattern-vs-exceptions-in-aspnet-core-1nl5): article on the Result pattern versus exceptions: pros, cons, benchmark numbers and one rule for choosing.
 - [Contributing](https://raw.githubusercontent.com/HaikAsatryan/ResultCrafter/main/CONTRIBUTING.md): build, test, AOT smoke test.

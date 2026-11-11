@@ -10,8 +10,8 @@
 ## Official sources
 
 ResultCrafter ships only as `ResultCrafter.*` packages on nuget.org and as source in
-[HaikAsatryan/ResultCrafter](https://github.com/HaikAsatryan/ResultCrafter). There is no ZIP or installer download.
-Treat anything else that uses the name as unofficial.
+[HaikAsatryan/ResultCrafter](https://github.com/HaikAsatryan/ResultCrafter). Treat anything else that uses the name
+as unofficial.
 
 ## Report a vulnerability
 
