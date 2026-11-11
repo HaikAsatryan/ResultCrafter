@@ -32,7 +32,16 @@ Result.NoContent();                                    // 204
 
 Errors come from factories: `BadRequest`, `Unauthorized`, `Forbidden`, `NotFound`, `Conflict`,
 `ConcurrencyConflict`, `Gone`, `UnprocessableEntity` and `TooManyRequests`. Add extra members with
-`Error.Conflict("Seat already booked.").With("seatId", seatId)`.
+`Error.Conflict("Seat already booked.").With("seatId", seatId)`. Give a field error a code that clients can translate
+with `FieldError`:
+
+```csharp
+Error.BadRequest(new Dictionary<string, FieldError[]>
+{
+    ["email"] = [new FieldError("An account with this email already exists.", "email_in_use")],
+    ["name"] = [new FieldError("Name is too long.", "name_too_long").With("maxLength", 100)]
+});
+```
 
 Transform a success value with `Map`, or handle both cases with `Match`:
 

@@ -166,6 +166,77 @@ public sealed class ProblemDetailsBuilderTests
         Assert.Equal(expected, pd.Extensions[ProblemDetailsKeys.RcRetryAfter]);
     }
 
+    // ── errorCodes ─────────────────────────────────────────────────────────────
+
+    [Fact]
+    public void Build_FieldErrorsWithCodes_WritesErrorCodesAlignedWithMessages()
+    {
+        var error = Error.BadRequest(new Dictionary<string, FieldError[]>
+        {
+            ["name"] =
+            [
+                new FieldError("Required.", "NotEmptyValidator"),
+                new FieldError("Too long.", "MaximumLengthValidator").With("minLength", 0).With("maxLength", 100)
+            ],
+            ["note"] = [new FieldError("Not allowed.")]
+        });
+
+        var pd = ProblemDetailsBuilder.Build(error);
+
+        var codes = Assert.IsType<JsonElement>(pd.Extensions[ProblemDetailsKeys.ErrorCodes]);
+        Assert.Equal(
+            """{"name":[{"code":"NotEmptyValidator"},{"code":"MaximumLengthValidator","args":{"minLength":0,"maxLength":100}}],"note":[{"code":null}]}""",
+            codes.GetRawText());
+
+        var messages = Assert.IsType<IReadOnlyDictionary<string, string[]>>(pd.Extensions[ProblemDetailsKeys.Errors],
+            exactMatch: false);
+        Assert.Equal(["Required.", "Too long."], messages["name"]);
+        Assert.Equal(["Not allowed."], messages["note"]);
+    }
+
+    [Fact]
+    public void Build_FieldErrorWithArgsButNoCode_WritesErrorCodes()
+    {
+        var error = Error.BadRequest(new Dictionary<string, FieldError[]>
+        {
+            ["name"] = [new FieldError("Too long.").With("maxLength", 100)]
+        });
+
+        var pd = ProblemDetailsBuilder.Build(error);
+
+        var codes = Assert.IsType<JsonElement>(pd.Extensions[ProblemDetailsKeys.ErrorCodes]);
+        Assert.Equal("""{"name":[{"code":null,"args":{"maxLength":100}}]}""", codes.GetRawText());
+    }
+
+    [Fact]
+    public void Build_NoCodesOrArgs_DoesNotWriteErrorCodes()
+    {
+        var fromMessages = Error.BadRequest(new Dictionary<string, string[]> { ["name"] = ["Required."] });
+        var fromFieldErrors = Error.BadRequest(new Dictionary<string, FieldError[]>
+        {
+            ["name"] = [new FieldError("Required.")]
+        });
+
+        Assert.False(ProblemDetailsBuilder.Build(fromMessages).Extensions.ContainsKey(ProblemDetailsKeys.ErrorCodes));
+        Assert.False(ProblemDetailsBuilder.Build(fromFieldErrors).Extensions.ContainsKey(ProblemDetailsKeys.ErrorCodes));
+        Assert.False(ProblemDetailsBuilder.Build(Error.NotFound()).Extensions.ContainsKey(ProblemDetailsKeys.ErrorCodes));
+    }
+
+    [Fact]
+    public void Build_AppMemberNamedErrorCodes_ReplacesTheBuiltOne()
+    {
+        // Not a reserved With key, so a 3.0 app that already used the name keeps working.
+        var error = Error.BadRequest(new Dictionary<string, FieldError[]>
+        {
+            ["name"] = [new FieldError("Required.", "required")]
+        }).With("errorCodes", "app value");
+
+        var pd = ProblemDetailsBuilder.Build(error);
+
+        var member = Assert.IsType<JsonElement>(pd.Extensions[ProblemDetailsKeys.ErrorCodes]);
+        Assert.Equal("app value", member.GetString());
+    }
+
     [Fact]
     public void Build_Errors_AreCopied_SoTheBodyCannotChangeTheError()
     {

@@ -125,6 +125,274 @@ public sealed class ValidatorExtensionsTests
         Assert.Equal(["Bad."], error.Errors["Quantity"]);
     }
 
+    // ── Codes and args ─────────────────────────────────────────────────────────
+
+    [Fact]
+    public async Task ValidateToResultAsync_FieldErrors_AlignWithMessages()
+    {
+        var error = await new ModelLevelValidator().ValidateToResultAsync(
+            new CreateOrderRequest("a@b.c", 0), TestContext.Current.CancellationToken);
+
+        foreach (var (key, messages) in error!.Errors!)
+        {
+            Assert.Equal(messages, error.FieldErrors![key].Select(e => e.Message).ToArray());
+        }
+    }
+
+    [Fact]
+    public async Task ValidateToResultAsync_RuleWithoutErrorCode_UsesValidatorName()
+    {
+        var error = await new CodesValidator().ValidateToResultAsync(Valid() with { Name = "" },
+            TestContext.Current.CancellationToken);
+
+        var fieldError = Assert.Single(error!.FieldErrors!["Name"]);
+        Assert.Equal("NotEmptyValidator", fieldError.Code);
+        Assert.Empty(fieldError.Args);
+    }
+
+    [Fact]
+    public async Task ValidateToResultAsync_WithErrorCode_KeepsItAsWritten()
+    {
+        var error = await new CodesValidator().ValidateToResultAsync(Valid() with { Email = "taken@example.com" },
+            TestContext.Current.CancellationToken);
+
+        Assert.Equal("email_in_use", Assert.Single(error!.FieldErrors!["Email"]).Code);
+    }
+
+    [Fact]
+    public async Task ValidateToResultAsync_Length_SendsLimitsButNotTheInput()
+    {
+        var error = await new CodesValidator().ValidateToResultAsync(Valid() with { Name = "secret-name" },
+            TestContext.Current.CancellationToken);
+
+        var fieldError = Assert.Single(error!.FieldErrors!["Name"]);
+        Assert.Equal("MaximumLengthValidator", fieldError.Code);
+        Assert.Equal(0, fieldError.Args["minLength"]);
+        Assert.Equal(5, fieldError.Args["maxLength"]);
+        Assert.Equal(2, fieldError.Args.Count);
+    }
+
+    [Fact]
+    public async Task ValidateToResultAsync_FixedComparisonAndRange_SendTheirLimits()
+    {
+        var error = await new CodesValidator().ValidateToResultAsync(Valid() with { Quantity = 0, Discount = 2.5m },
+            TestContext.Current.CancellationToken);
+
+        var quantity = Assert.Single(error!.FieldErrors!["Quantity"]);
+        Assert.Equal("GreaterThanValidator", quantity.Code);
+        Assert.Equal(0, quantity.Args["comparisonValue"]);
+        Assert.Single(quantity.Args);
+
+        var discount = Assert.Single(error.FieldErrors["Discount"]);
+        Assert.Equal("InclusiveBetweenValidator", discount.Code);
+        Assert.Equal(0m, discount.Args["from"]);
+        Assert.Equal(1m, discount.Args["to"]);
+        Assert.Equal(2, discount.Args.Count);
+    }
+
+    [Fact]
+    public async Task ValidateToResultAsync_ComparisonWithAnotherProperty_DropsItsValue()
+    {
+        var error = await new CodesValidator().ValidateToResultAsync(
+            Valid() with { Password = "hunter2-secret", ConfirmPassword = "other" },
+            TestContext.Current.CancellationToken);
+
+        var fieldError = Assert.Single(error!.FieldErrors!["ConfirmPassword"]);
+        Assert.Equal("EqualValidator", fieldError.Code);
+        Assert.Empty(fieldError.Args);
+    }
+
+    [Fact]
+    public async Task ValidateToResultAsync_StringComparisonFromLambda_DropsItsValue()
+    {
+        var error = await new CodesValidator().ValidateToResultAsync(
+            Valid() with { Password = "  hunter2-secret  ", Hint = "hunter2-secret" },
+            TestContext.Current.CancellationToken);
+
+        var fieldError = Assert.Single(error!.FieldErrors!["Hint"]);
+        Assert.Equal("NotEqualValidator", fieldError.Code);
+        Assert.Empty(fieldError.Args);
+    }
+
+    [Fact]
+    public async Task ValidateToResultAsync_FailureAddedByHand_HasNoCode()
+    {
+        var error = await new CodesValidator().ValidateToResultAsync(Valid() with { Quantity = 13 },
+            TestContext.Current.CancellationToken);
+
+        var fieldError = Assert.Single(error!.FieldErrors!["Quantity"]);
+        Assert.Null(fieldError.Code);
+        Assert.Equal("Thirteen is unlucky.", fieldError.Message);
+    }
+
+    [Fact]
+    public async Task ValidateToResultAsync_MinimumLength_DropsTheNoMaximumMarker()
+    {
+        var error = await new LimitsValidator().ValidateToResultAsync(ValidLimits() with { Short = "ab" },
+            TestContext.Current.CancellationToken);
+
+        var fieldError = Assert.Single(error!.FieldErrors!["Short"]);
+        Assert.Equal("MinimumLengthValidator", fieldError.Code);
+        Assert.Equal(3, fieldError.Args["minLength"]);
+        Assert.Single(fieldError.Args);
+    }
+
+    [Fact]
+    public async Task ValidateToResultAsync_LengthRangeAndExactLength_SendBothBounds()
+    {
+        var error = await new LimitsValidator().ValidateToResultAsync(
+            ValidLimits() with { Range = "too long", Exact = "ab" }, TestContext.Current.CancellationToken);
+
+        var range = Assert.Single(error!.FieldErrors!["Range"]);
+        Assert.Equal("LengthValidator", range.Code);
+        Assert.Equal(2, range.Args["minLength"]);
+        Assert.Equal(5, range.Args["maxLength"]);
+        Assert.Equal(2, range.Args.Count);
+
+        var exact = Assert.Single(error.FieldErrors["Exact"]);
+        Assert.Equal("ExactLengthValidator", exact.Code);
+        Assert.Equal(4, exact.Args["minLength"]);
+        Assert.Equal(4, exact.Args["maxLength"]);
+        Assert.Equal(2, exact.Args.Count);
+    }
+
+    [Fact]
+    public async Task ValidateToResultAsync_PrecisionScale_SendsTheLimitsButNotTheMeasuredDigits()
+    {
+        var error = await new LimitsValidator().ValidateToResultAsync(ValidLimits() with { Price = 123.456m },
+            TestContext.Current.CancellationToken);
+
+        var fieldError = Assert.Single(error!.FieldErrors!["Price"]);
+        Assert.Equal("ScalePrecisionValidator", fieldError.Code);
+        Assert.Equal(4, fieldError.Args["expectedPrecision"]);
+        Assert.Equal(2, fieldError.Args["expectedScale"]);
+        Assert.Equal(2, fieldError.Args.Count);
+    }
+
+    [Fact]
+    public async Task ValidateToResultAsync_ComparisonWithMissingValue_SendsNoComparisonValue()
+    {
+        // FluentValidation reports a null comparison value as "".
+        var error = await new LimitsValidator().ValidateToResultAsync(ValidLimits() with { Floor = null },
+            TestContext.Current.CancellationToken);
+
+        var fieldError = Assert.Single(error!.FieldErrors!["Count"]);
+        Assert.Equal("GreaterThanValidator", fieldError.Code);
+        Assert.Empty(fieldError.Args);
+    }
+
+    [Fact]
+    public async Task ValidateToResultAsync_ComparisonWithComputedValue_SendsItLikeTheMessageDoes()
+    {
+        // A computed lambda has no ComparisonProperty, so it looks like a fixed value. FluentValidation's own
+        // message prints the same value.
+        var error = await new LimitsValidator().ValidateToResultAsync(ValidLimits() with { Count = 25 },
+            TestContext.Current.CancellationToken);
+
+        var fieldError = Assert.Single(error!.FieldErrors!["Count"]);
+        Assert.Equal("LessThanValidator", fieldError.Code);
+        Assert.Equal(20, fieldError.Args["comparisonValue"]);
+        Assert.Single(fieldError.Args);
+        Assert.Contains("'20'", fieldError.Message);
+    }
+
+    [Fact]
+    public async Task ValidateToResultAsync_DefaultMessages_RepeatInput()
+    {
+        // Pins the guide's warning: the bridge keeps FluentValidation's messages, and the defaults repeat input.
+        var error = await new SecretsValidator(customMessage: false).ValidateToResultAsync(
+            new Secrets("hunter2", "hunter3", 42, (Level)7), TestContext.Current.CancellationToken);
+
+        Assert.Contains("hunter2", Assert.Single(error!.Errors!["ConfirmPassword"]));
+        Assert.Contains("42", Assert.Single(error.Errors["Score"]));
+        Assert.Contains("7", Assert.Single(error.Errors["Level"]));
+    }
+
+    [Fact]
+    public async Task ValidateToResultAsync_ComparisonPropertyMessage_HidesTheOtherValue()
+    {
+        var error = await new SecretsValidator(customMessage: true).ValidateToResultAsync(
+            new Secrets("hunter2", "hunter3", 1, Level.Low), TestContext.Current.CancellationToken);
+
+        Assert.Equal("'Confirm Password' must match 'Password'.", Assert.Single(error!.Errors!["ConfirmPassword"]));
+    }
+
+    private sealed record Secrets(string Password, string ConfirmPassword, int Score, Level Level);
+
+    private enum Level
+    {
+        Low = 1
+    }
+
+    private sealed class SecretsValidator : AbstractValidator<Secrets>
+    {
+        public SecretsValidator(bool customMessage)
+        {
+            var confirm = RuleFor(x => x.ConfirmPassword).Equal(x => x.Password);
+            if (customMessage) confirm.WithMessage("'{PropertyName}' must match '{ComparisonProperty}'.");
+            RuleFor(x => x.Score).InclusiveBetween(1, 10);
+            RuleFor(x => x.Level).IsInEnum();
+        }
+    }
+
+    private static Limits ValidLimits()
+    {
+        return new Limits("abc", "abc", "abcd", 12.34m, 5, 0, 10);
+    }
+
+    private sealed record Limits(
+        string Short,
+        string Range,
+        string Exact,
+        decimal Price,
+        int Count,
+        int? Floor,
+        int Ceiling);
+
+    private sealed class LimitsValidator : AbstractValidator<Limits>
+    {
+        public LimitsValidator()
+        {
+            RuleFor(x => x.Short).MinimumLength(3);
+            RuleFor(x => x.Range).Length(2, 5);
+            RuleFor(x => x.Exact).Length(4);
+            RuleFor(x => x.Price).PrecisionScale(4, 2, false);
+            RuleFor(x => x.Count).GreaterThan(x => x.Floor == null ? null : x.Floor + 1);
+            RuleFor(x => x.Count).LessThan(x => x.Ceiling * 2);
+        }
+    }
+
+    private static Signup Valid()
+    {
+        return new Signup("Ann", "ann@example.com", 1, 0.5m, "hunter2", "hunter2", "a hint");
+    }
+
+    private sealed record Signup(
+        string Name,
+        string Email,
+        int Quantity,
+        decimal Discount,
+        string Password,
+        string ConfirmPassword,
+        string Hint);
+
+    private sealed class CodesValidator : AbstractValidator<Signup>
+    {
+        public CodesValidator()
+        {
+            RuleFor(x => x.Name).NotEmpty().MaximumLength(5);
+            RuleFor(x => x.Email).NotEqual("taken@example.com").WithErrorCode("email_in_use");
+            RuleFor(x => x.Quantity).GreaterThan(0);
+            RuleFor(x => x.Quantity).Custom((quantity, context) =>
+            {
+                if (quantity == 13) context.AddFailure("Quantity", "Thirteen is unlucky.");
+            });
+            RuleFor(x => x.Discount).InclusiveBetween(0m, 1m);
+            RuleFor(x => x.ConfirmPassword).Equal(x => x.Password);
+            RuleFor(x => x.Hint).NotEqual(x => x.Password.Trim());
+        }
+    }
+
     private sealed record CreateOrderRequest(string? CustomerEmail, int Quantity);
 
     // A model-level rule (empty property name), a repeated message and a whitespace-only message.

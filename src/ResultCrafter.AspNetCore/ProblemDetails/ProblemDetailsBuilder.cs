@@ -22,7 +22,8 @@ public static class ProblemDetailsBuilder
     ///     or converted to a <c>ProblemHttpResult</c> via <c>TypedResults.Problem</c>.
     /// </summary>
     /// <remarks>
-    ///     Values added with <c>Error.With</c> are stored as <see cref="JsonElement" />. With reflection-based
+    ///     Values added with <c>Error.With</c>, and the <c>errorCodes</c> member built from
+    ///     <see cref="Error.FieldErrors" />, are stored as <see cref="JsonElement" />. With reflection-based
     ///     JSON turned off (NativeAOT), ProblemDetails can write a <see cref="JsonElement" /> extension but not a
     ///     boxed <see cref="long" />, <see cref="bool" />, <see cref="Guid" /> and similar.
     /// </remarks>
@@ -48,10 +49,14 @@ public static class ProblemDetailsBuilder
         // matching the shape ASP.NET Core uses for model-validation responses.
         if (error.IsValidation) pd.Extensions[ProblemDetailsKeys.Errors] = CopyErrors(error.Errors);
 
+        // A separate member, so "errors" keeps the shape existing clients read.
+        if (error.FieldErrors is { } fieldErrors && HasCodeOrArgs(fieldErrors))
+            pd.Extensions[ProblemDetailsKeys.ErrorCodes] = ToJson(writer => WriteErrorCodes(writer, fieldErrors));
+
         if (error.RetryAfter is { } wait) pd.Extensions[ProblemDetailsKeys.RcRetryAfter] = RetryAfterSeconds(wait);
 
         if (error.Extensions.Count > 0)
-            foreach (var member in ToJson(error.Extensions).EnumerateObject())
+            foreach (var member in ToJson(writer => WriteObject(writer, error.Extensions)).EnumerateObject())
                 pd.Extensions[member.Name] = member.Value;
 
         return pd;
@@ -73,23 +78,61 @@ public static class ProblemDetailsBuilder
         return seconds.ToString(CultureInfo.InvariantCulture);
     }
 
-    private static JsonElement ToJson(IReadOnlyDictionary<string, object> extensions)
+    private static bool HasCodeOrArgs(IReadOnlyDictionary<string, FieldError[]> fieldErrors)
+    {
+        foreach (var entries in fieldErrors.Values)
+        {
+            if (Array.Exists(entries, entry => entry.Code is not null || entry.Args.Count > 0)) return true;
+        }
+
+        return false;
+    }
+
+    private static JsonElement ToJson(Action<Utf8JsonWriter> write)
     {
         var buffer = new ArrayBufferWriter<byte>();
-        using (var writer = new Utf8JsonWriter(buffer))
-        {
-            writer.WriteStartObject();
-            foreach (var (key, value) in extensions)
-            {
-                writer.WritePropertyName(key);
-                WriteValue(writer, value);
-            }
-
-            writer.WriteEndObject();
-        }
+        using (var writer = new Utf8JsonWriter(buffer)) write(writer);
 
         using var document = JsonDocument.Parse(buffer.WrittenMemory);
         return document.RootElement.Clone();
+    }
+
+    // Every entry keeps its place, with a null code when it has none, so index i still matches message i.
+    private static void WriteErrorCodes(Utf8JsonWriter writer, IReadOnlyDictionary<string, FieldError[]> fieldErrors)
+    {
+        writer.WriteStartObject();
+        foreach (var (key, entries) in fieldErrors)
+        {
+            writer.WriteStartArray(key);
+            foreach (var entry in entries)
+            {
+                writer.WriteStartObject();
+                writer.WriteString("code", entry.Code);
+                if (entry.Args.Count > 0)
+                {
+                    writer.WritePropertyName("args");
+                    WriteObject(writer, entry.Args);
+                }
+
+                writer.WriteEndObject();
+            }
+
+            writer.WriteEndArray();
+        }
+
+        writer.WriteEndObject();
+    }
+
+    private static void WriteObject(Utf8JsonWriter writer, IReadOnlyDictionary<string, object> values)
+    {
+        writer.WriteStartObject();
+        foreach (var (key, value) in values)
+        {
+            writer.WritePropertyName(key);
+            WriteValue(writer, value);
+        }
+
+        writer.WriteEndObject();
     }
 
     private static void WriteValue(Utf8JsonWriter writer, object value)
@@ -129,7 +172,7 @@ public static class ProblemDetailsBuilder
                 writer.WriteEndArray();
                 break;
             default:
-                // Error.With only accepts the types above.
+                // Error.With and FieldError.With only accept the types above.
                 throw new InvalidOperationException($"Unsupported extension value type '{value.GetType().Name}'.");
         }
     }

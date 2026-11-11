@@ -285,6 +285,64 @@ public sealed class ValidationFilterTests
         Assert.Contains(lineKey, errors.Keys);
     }
 
+    // ── Codes follow their messages through key alignment ─────────────────────
+
+    [Theory]
+    [InlineData("camel", "shippingAddress.zipCode", "lines[1].productName")]
+    [InlineData("snake", "shipping_address.zip_code", "lines[1].product_name")]
+    public async Task InvalidNestedRequest_FieldErrorsKeepCodesUnderAlignedKeys(string policy, string zipKey,
+        string lineKey)
+    {
+        var services = new ServiceCollection();
+        services.AddOptions();
+        services.Configure<JsonOptions>(o => o.SerializerOptions.PropertyNamingPolicy =
+            policy == "camel" ? JsonNamingPolicy.CamelCase : JsonNamingPolicy.SnakeCaseLower);
+        services.AddSingleton<IValidator<NestedOrder>, NestedOrderValidator>();
+        var context = EndpointFilterInvocationContext.Create(
+            new DefaultHttpContext { RequestServices = services.BuildServiceProvider() },
+            new NestedOrder(new ShipTo(null), [new OrderLine("a"), new OrderLine(null)]));
+
+        var result = await new ValidationFilter<NestedOrder>().InvokeAsync(context, Next);
+
+        var problem = Assert.IsType<ProblemHttpResult>(result);
+        var codes = Assert.IsType<JsonElement>(problem.ProblemDetails.Extensions["errorCodes"]);
+        Assert.Equal("NotEmptyValidator", codes.GetProperty(zipKey)[0].GetProperty("code").GetString());
+        Assert.Equal("NotEmptyValidator", codes.GetProperty(lineKey)[0].GetProperty("code").GetString());
+    }
+
+    [Fact]
+    public async Task WithValidation_InvalidBody_SendsErrorCodesNextToErrors()
+    {
+        await using var app = TestApp.Build(
+            b =>
+            {
+                b.Services.AddResultCrafter();
+                b.Services.AddSingleton<IValidator<CreateOrderRequest>, CodedOrderValidator>();
+            },
+            a =>
+            {
+                a.UseResultCrafter();
+                a.MapPost("/orders", (CreateOrderRequest req) => Results.Ok(req)).WithValidation<CreateOrderRequest>();
+            });
+
+        await app.StartAsync(TestContext.Current.CancellationToken);
+        using var client = app.GetTestClient();
+
+        var response = await client.PostAsJsonAsync("/orders", new CreateOrderRequest("a-very-long@example.com", 0),
+            TestContext.Current.CancellationToken);
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+        using var doc = JsonDocument.Parse(
+            await response.Content.ReadAsStringAsync(TestContext.Current.CancellationToken));
+        var root = doc.RootElement;
+        Assert.Equal(JsonValueKind.String, root.GetProperty("errors").GetProperty("customerEmail")[0].ValueKind);
+        Assert.Equal("""[{"code":"MaximumLengthValidator","args":{"minLength":0,"maxLength":10}}]""",
+            root.GetProperty("errorCodes").GetProperty("customerEmail").GetRawText());
+        Assert.Equal("""[{"code":"quantity_too_low","args":{"comparisonValue":0}}]""",
+            root.GetProperty("errorCodes").GetProperty("quantity").GetRawText());
+        Assert.DoesNotContain("a-very-long@example.com", root.GetProperty("errorCodes").GetRawText());
+    }
+
     private static ServiceProvider BuildProvider(bool withValidator, JsonNamingPolicy? policy)
     {
         var services = new ServiceCollection();
@@ -368,6 +426,15 @@ internal sealed class CountingValidator : AbstractValidator<CreateOrderRequest>
     }
 
     public int Calls => Volatile.Read(ref _calls);
+}
+
+internal sealed class CodedOrderValidator : AbstractValidator<CreateOrderRequest>
+{
+    public CodedOrderValidator()
+    {
+        RuleFor(x => x.CustomerEmail).MaximumLength(10);
+        RuleFor(x => x.Quantity).GreaterThan(0).WithErrorCode("quantity_too_low");
+    }
 }
 
 public sealed class CreateOrderRequestValidator : AbstractValidator<CreateOrderRequest>

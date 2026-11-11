@@ -68,19 +68,28 @@ public sealed class ValidationFilter<TRequest> : IEndpointFilter where TRequest 
 
     /// <summary>
     ///     Re-keys the validation field errors using the application's configured JSON
-    ///     <see cref="JsonNamingPolicy" /> so the response <c>errors</c> keys match the wire JSON.
-    ///     Returns the error unchanged when there is no field-error dictionary or no naming policy
+    ///     <see cref="JsonNamingPolicy" /> so the response <c>errors</c> and <c>errorCodes</c> keys match the wire
+    ///     JSON. Returns the error unchanged when there are no field errors or no naming policy
     ///     (a <see langword="null" /> policy means CLR/PascalCase names are used verbatim).
     /// </summary>
     private static Error AlignKeysToJsonPolicy(Error error, HttpContext httpContext)
     {
-        if (error.Errors is null) return error;
+        // The bridge builds every validation error from FieldError values; re-keying those keeps each code and
+        // its args next to its message.
+        if (error.FieldErrors is not { } fieldErrors) return error;
 
         var jsonOptions = httpContext.RequestServices.GetService<IOptions<JsonOptions>>();
         var policy = jsonOptions?.Value.SerializerOptions.PropertyNamingPolicy;
         if (policy is null) return error;
 
-        var aligned = FieldKeyNaming.ConvertKeys(policy, error.Errors, StringComparer.OrdinalIgnoreCase);
+        // Keys that become equal are merged, so no error is lost.
+        var aligned = new Dictionary<string, FieldError[]>(fieldErrors.Count, StringComparer.OrdinalIgnoreCase);
+        foreach (var (key, entries) in fieldErrors)
+        {
+            var name = FieldKeyNaming.ConvertPath(policy, key);
+            aligned[name] = aligned.TryGetValue(name, out var existing) ? [.. existing, .. entries] : entries;
+        }
+
         return Error.BadRequest(aligned, error.Detail);
     }
 }

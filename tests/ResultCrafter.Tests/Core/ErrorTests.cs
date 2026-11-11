@@ -136,6 +136,18 @@ public sealed class ErrorTests
     }
 
     [Fact]
+    public void BadRequest_WithNullMessage_ThrowsArgumentException()
+    {
+        var errors = new Dictionary<string, string[]>
+        {
+            ["field"] = ["Field is required.", null!]
+        };
+
+        var exception = Assert.Throws<ArgumentException>(() => Error.BadRequest(errors));
+        Assert.Contains("null message", exception.Message);
+    }
+
+    [Fact]
     public void BadRequest_WithEmptyDictionary_ThrowsArgumentException()
     {
         Assert.Throws<ArgumentException>(() => Error.BadRequest(new Dictionary<string, string[]>()));
@@ -424,6 +436,123 @@ public sealed class ErrorTests
     {
         Assert.Throws<ArgumentOutOfRangeException>(() => Error.TooManyRequests(retryAfter: TimeSpan.MaxValue));
         Assert.NotNull(Error.TooManyRequests(retryAfter: TimeSpan.FromSeconds(int.MaxValue)).RetryAfter);
+    }
+
+    // ── BadRequest with FieldError values ─────────────────────────────────────
+
+    [Fact]
+    public void BadRequest_WithFieldErrors_SetsMessagesAndFieldErrors()
+    {
+        var taken = new FieldError("Email is taken.", "email_in_use");
+        var tooLong = new FieldError("Name is too long.", "too_long").With("maxLength", 100);
+
+        var error = Error.BadRequest(new Dictionary<string, FieldError[]>
+        {
+            ["email"] = [taken],
+            ["name"] = [tooLong]
+        }, "invalid");
+
+        Assert.True(error.IsValidation);
+        Assert.Equal(ErrorType.BadRequest, error.Type);
+        Assert.Equal("invalid", error.Detail);
+        Assert.Equal(["Email is taken."], error.Errors!["email"]);
+        Assert.Equal(["Name is too long."], error.Errors["name"]);
+        Assert.Equal([taken], error.FieldErrors!["email"]);
+        Assert.Equal([tooLong], error.FieldErrors["name"]);
+    }
+
+    [Fact]
+    public void BadRequest_WithFieldErrors_MergesKeysThatDifferByCase_InBothDictionaries()
+    {
+        var error = Error.BadRequest(new Dictionary<string, FieldError[]>
+        {
+            ["Email"] = [new FieldError("Required.", "NotEmptyValidator")],
+            ["email"] = [new FieldError("Invalid.", "EmailValidator")]
+        });
+
+        var (key, messages) = Assert.Single(error.Errors!);
+        Assert.Equal("Email", key);
+        Assert.Equal(["Required.", "Invalid."], messages);
+        Assert.Equal(["NotEmptyValidator", "EmailValidator"], error.FieldErrors!["email"].Select(e => e.Code).ToArray());
+    }
+
+    [Fact]
+    public void BadRequest_WithFieldErrors_CopiesDictionaryAndArrays()
+    {
+        var errors = new Dictionary<string, FieldError[]> { ["email"] = [new FieldError("Required.")] };
+
+        var error = Error.BadRequest(errors);
+        errors["email"][0] = new FieldError("Mutated!");
+        errors["new"] = [new FieldError("Injected!")];
+
+        Assert.False(error.FieldErrors!.ContainsKey("new"));
+        Assert.Equal("Required.", error.FieldErrors["email"][0].Message);
+    }
+
+    [Fact]
+    public void BadRequest_WithFieldErrors_RejectsInvalidInput()
+    {
+        Assert.Throws<ArgumentNullException>(() => Error.BadRequest((IReadOnlyDictionary<string, FieldError[]>)null!));
+        Assert.Throws<ArgumentException>(() => Error.BadRequest(new Dictionary<string, FieldError[]>()));
+        Assert.Throws<ArgumentException>(() =>
+            Error.BadRequest(new Dictionary<string, FieldError[]> { [" "] = [new FieldError("m")] }));
+        Assert.Throws<ArgumentException>(() =>
+            Error.BadRequest(new Dictionary<string, FieldError[]> { ["f"] = null! }));
+        Assert.Throws<ArgumentException>(() =>
+            Error.BadRequest(new Dictionary<string, FieldError[]> { ["f"] = [null!] }));
+    }
+
+    [Fact]
+    public void BadRequest_WithMessages_HasNoFieldErrors()
+    {
+        Assert.Null(Error.BadRequest(new Dictionary<string, string[]> { ["f"] = ["m"] }).FieldErrors);
+        Assert.Null(Error.BadRequest("prose").FieldErrors);
+    }
+
+    [Fact]
+    public void Equality_MessagesOnly_EqualsFieldErrorsWithoutCodesOrArgs()
+    {
+        var fromMessages = Error.BadRequest(new Dictionary<string, string[]> { ["email"] = ["Required."] });
+        var fromFieldErrors = Error.BadRequest(new Dictionary<string, FieldError[]>
+        {
+            ["email"] = [new FieldError("Required.")]
+        });
+
+        Assert.Equal(fromMessages, fromFieldErrors);
+        Assert.Equal(fromFieldErrors, fromMessages);
+        Assert.Equal(fromMessages.GetHashCode(), fromFieldErrors.GetHashCode());
+    }
+
+    [Fact]
+    public void Equality_DifferentCodeOrArgs_AreNotEqual()
+    {
+        static Error Build(FieldError fieldError)
+        {
+            return Error.BadRequest(new Dictionary<string, FieldError[]> { ["name"] = [fieldError] });
+        }
+
+        var coded = Build(new FieldError("Too long.", "too_long").With("maxLength", 100));
+
+        Assert.Equal(coded, Build(new FieldError("Too long.", "too_long").With("maxLength", 100)));
+        AssertNotEqualBothWays(coded, Build(new FieldError("Too long.", "other").With("maxLength", 100)));
+        AssertNotEqualBothWays(coded, Build(new FieldError("Too long.", "too_long").With("maxLength", 50)));
+        AssertNotEqualBothWays(coded, Error.BadRequest(new Dictionary<string, string[]> { ["name"] = ["Too long."] }));
+        AssertNotEqualBothWays(Build(new FieldError("Too long.").With("maxLength", 100)),
+            Error.BadRequest(new Dictionary<string, string[]> { ["name"] = ["Too long."] }));
+    }
+
+    [Fact]
+    public void With_KeepsFieldErrors()
+    {
+        var error = Error.BadRequest(new Dictionary<string, FieldError[]>
+        {
+            ["email"] = [new FieldError("Required.", "NotEmptyValidator")]
+        });
+
+        var extended = error.With("hint", "x");
+
+        Assert.Same(error.FieldErrors, extended.FieldErrors);
+        Assert.Same(error.Errors, extended.Errors);
     }
 
     [Fact]

@@ -25,6 +25,10 @@ app.MapGet("/not-found", () => Result<Item>.Fail(Error.NotFound("item_missing"))
 app.MapGet("/bad-request", () =>
     Error.BadRequest(new Dictionary<string, string[]> { ["name"] = ["required"] }).ToProblemResult());
 app.MapPost("/validated", (CreateItem item) => TypedResults.Ok(item.Name)).WithValidation<CreateItem>();
+app.MapGet("/field-codes", () => Error.BadRequest(new Dictionary<string, FieldError[]>
+{
+    ["name"] = [new FieldError("too_long", "too_long").With("maxLength", 5)]
+}).ToProblemResult());
 app.MapGet("/limited", () => Error.TooManyRequests("slow_down", TimeSpan.FromSeconds(59.2))
     .With("s", "x")
     .With("i", 1)
@@ -59,7 +63,13 @@ await Check("BadRequest field errors", HttpMethod.Get, "/bad-request", null, Htt
     root.GetProperty("errors").GetProperty("name")[0].GetString() == "required");
 
 await Check("WithValidation invalid body", HttpMethod.Post, "/validated", """{"name":""}""", HttpStatusCode.BadRequest,
-    (response, root) => root.GetProperty("errors").TryGetProperty("name", out _));
+    (response, root) => root.GetProperty("errors").TryGetProperty("name", out _) &&
+                        root.GetProperty("errorCodes").GetProperty("name")[0].GetProperty("code").GetString() ==
+                        "NotEmptyValidator");
+
+await Check("Field error codes", HttpMethod.Get, "/field-codes", null, HttpStatusCode.BadRequest, (response, root) =>
+    root.GetProperty("errors").GetProperty("name")[0].GetString() == "too_long" &&
+    root.GetProperty("errorCodes").GetProperty("name")[0].GetProperty("args").GetProperty("maxLength").GetInt32() == 5);
 
 await Check("429 Retry-After and With()", HttpMethod.Get, "/limited", null, HttpStatusCode.TooManyRequests,
     (response, root) =>
