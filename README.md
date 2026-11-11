@@ -71,6 +71,8 @@ That is the whole setup. It needs .NET 10 or later.
   422, and 429 with a `Retry-After` header.
 - **One error shape.** Your errors, binding failures, built-in validation and unhandled exceptions all leave as the
   same ProblemDetails, with `traceId` and `requestId`.
+- **Translatable field errors.** A field error can carry a stable code and its limits next to the English message,
+  so a client can show it in its own language. FluentValidation rules fill them in for you.
 - **Crashes handled.** An unhandled exception becomes a clean 500: full detail in Development, a plain message in
   Production.
 - **Typed success.** `200`, `201` with `Location`, `202` and `204`. OpenAPI sees them, and `.ProducesNotFound()` and

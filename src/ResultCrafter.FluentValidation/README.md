@@ -30,9 +30,19 @@ public async Task<Result<OrderDto>> CreateAsync(CreateOrderRequest req, Cancella
   "errors": {
     "CustomerEmail": ["Email is required."],
     "Quantity": ["Quantity must be greater than 0."]
+  },
+  "errorCodes": {
+    "CustomerEmail": [{ "code": "NotEmptyValidator" }],
+    "Quantity": [{ "code": "GreaterThanValidator", "args": { "comparisonValue": 0 } }]
   }
 }
 ```
+
+`errorCodes` lets a client show each message in its own language: entry `i` of a field belongs to message `i`. The
+code is the rule's `WithErrorCode` value, or FluentValidation's validator name when the rule sets none. The args are
+the rule's limits (`minLength`, `maxLength` when the rule has a maximum, `from`, `to`, `expectedPrecision`,
+`expectedScale`, and a `comparisonValue` that is neither a string nor another property). The value the caller sent is
+never copied into them.
 
 Property names are used as FluentValidation reports them. To validate Minimal API requests before the handler runs,
 with keys that match your JSON naming, use

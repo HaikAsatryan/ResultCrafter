@@ -9,6 +9,7 @@ Everything ResultCrafter does, with examples. New here? The [README](../README.m
 - [Map results to HTTP](#map-results-to-http)
 - [Exceptions and binding failures](#exceptions-and-binding-failures)
 - [Extra members and Retry-After](#extra-members-and-retry-after)
+- [Field error codes](#field-error-codes)
 - [Always map results at the endpoint](#always-map-results-at-the-endpoint)
 - [Map: transforming results](#map-transforming-results) (and `Match`)
 - [MVC controllers](#mvc-controllers)
@@ -71,6 +72,12 @@ return Error.BadRequest(new Dictionary<string, string[]>
 {
     ["email"]    = ["Email is required.", "Email must be a valid address."],
     ["quantity"] = ["Quantity must be greater than 0."]
+});
+
+// 400 with field errors that carry a code (and args) a client can translate
+return Error.BadRequest(new Dictionary<string, FieldError[]>
+{
+    ["email"] = [new FieldError("An account with this email already exists.", "email_in_use")]
 });
 
 // Extra members in the response body
@@ -141,10 +148,10 @@ app.MapPost("/orders/bulk-cancel", async (BulkCancelRequest req, OrderService sv
 > `ProblemHttpResult` is excluded from automatic inference. That is what `ProducesNotFound()`, `ProducesBadRequest()`,
 > `ProducesConflict()` etc. do. They have no effect at runtime. Each one declares the status code with an
 > `application/problem+json` body of type `ProblemResponse` (namespace `ResultCrafter.AspNetCore.ProblemDetails`): the
-> real ResultCrafter error body, including `traceId`, `requestId` and `errors`. `ProblemResponse` exists for OpenAPI
-> only; ResultCrafter never creates it. The full set: `ProducesBadRequest()` (400), `ProducesUnauthorized()` (401),
-> `ProducesForbidden()` (403), `ProducesNotFound()` (404), `ProducesConflict()` (409), `ProducesGone()` (410),
-> `ProducesUnprocessableEntity()` (422), and `ProducesTooManyRequests()` (429).
+> real ResultCrafter error body, including `traceId`, `requestId`, `errors` and `errorCodes`. `ProblemResponse` exists
+> for OpenAPI only; ResultCrafter never creates it. The full set: `ProducesBadRequest()` (400),
+> `ProducesUnauthorized()` (401), `ProducesForbidden()` (403), `ProducesNotFound()` (404), `ProducesConflict()` (409),
+> `ProducesGone()` (410), `ProducesUnprocessableEntity()` (422), and `ProducesTooManyRequests()` (429).
 
 ### What the error response looks like
 
@@ -288,6 +295,55 @@ Content-Type: application/problem+json
 The header value is whole seconds, rounded up, so a client never retries too early. `retryAfter` must be positive.
 Without it, no header is sent. The value travels through the pipeline as an internal `x-rc-retry-after` marker that
 never reaches the body.
+
+## Field error codes
+
+The messages in `errors` are English. To let a client show a field error in its own language, give it a stable code,
+and the values its message needs as args, with `FieldError`:
+
+```csharp
+return Error.BadRequest(new Dictionary<string, FieldError[]>
+{
+    ["email"] = [new FieldError("An account with this email already exists.", "email_in_use")],
+    ["displayName"] = [new FieldError("Display name must be 100 characters or fewer.", "too_long")
+        .With("maxLength", 100)]
+});
+```
+
+The body keeps `errors` exactly as before and adds `errorCodes` next to it:
+
+```json
+{
+    "type": "https://tools.ietf.org/html/rfc9110#section-15.5.1",
+    "title": "bad_request",
+    "status": 400,
+    "detail": "the_request_was_invalid_or_cannot_be_otherwise_served",
+    "instance": "/api/users",
+    "errors": {
+        "email": ["An account with this email already exists."],
+        "displayName": ["Display name must be 100 characters or fewer."]
+    },
+    "errorCodes": {
+        "email": [{ "code": "email_in_use" }],
+        "displayName": [{ "code": "too_long", "args": { "maxLength": 100 } }]
+    },
+    "traceId": "00-abc123def456abc123def456abc123de-abc123def456abc1-00",
+    "requestId": "0HN8K2MJ7F4QP:00000007"
+}
+```
+
+- `errorCodes` has the same keys as `errors`, and each array the same length and order: entry `i` belongs to message
+  `i`. A client shows its own text for a code it knows, filled with the args, and the English message otherwise.
+- `code` is `null` for a message whose rule has none; `args` is left out when there are none. `errorCodes` itself is
+  left out when no field error has a code or args, so an error built from message strings has the 3.0 body.
+- Args take the same value types as [`Error.With()`](#errorwith), keys are written as given, and the JSON naming
+  policy is not applied to them. Never put the value the caller sent into an arg: it can be a password or personal
+  data, and it goes out in the response body.
+- Read them back with `error.FieldErrors`; `error.Errors` still holds the messages. Equality includes codes and args.
+- [FluentValidation](#fluentvalidation) fills codes and args for you, and `WithValidation<T>()` aligns the
+  `errorCodes` keys to your JSON naming policy like the `errors` keys. ASP.NET Core's built-in validation and the
+  unreadable JSON body response carry no codes.
+- OpenAPI: `ProblemResponse.ErrorCodes` documents the member, with entries of type `FieldErrorCode`.
 
 ## Always map results at the endpoint
 
@@ -494,7 +550,23 @@ public async Task<Result<OrderDto>> CreateAsync(CreateOrderRequest req, Cancella
 ```
 
 `ValidateToResultAsync` returns `null` on success and an `Error.BadRequest` with the full field errors dictionary on
-failure. Property names are used as-is from FluentValidation. If you call it directly and want a specific casing
+failure. Each message also carries a [field error code](#field-error-codes):
+
+- The code is the failure's `ErrorCode`: the rule's `WithErrorCode(...)` value, or, when the rule sets none,
+  FluentValidation's validator name (`NotEmptyValidator`, `MaximumLengthValidator`, `PredicateValidator` for `Must`).
+  These names are also the keys of FluentValidation's own translations, so a client can reuse them. A failure added by
+  hand with `context.AddFailure(property, message)` has no code (`null`).
+- The args are the rule's limits, in camelCase: `minLength`, `maxLength`, `from`, `to`, `expectedPrecision`,
+  `expectedScale`, and `comparisonValue` when the rule compares with a value that is neither a string nor another
+  property. `MaximumLength(100)` sends `{ "minLength": 0, "maxLength": 100 }`; `MinimumLength(3)` sends only
+  `{ "minLength": 3 }`, because FluentValidation stores its "no maximum" as `-1`, which is not a limit.
+- A computed comparison such as `GreaterThan(x => x.StartDate.AddDays(1))` looks like a fixed value to the bridge,
+  so its result is sent as `comparisonValue`. FluentValidation's own message for that rule prints the same value.
+- Never copied: the attempted value (`PropertyValue`), values measured from it (`TotalLength`, `Digits`,
+  `ActualScale`), display names (`PropertyName`, `PropertyPath`, `ComparisonProperty`), the value of another property
+  a rule compares with (`Equal(x => x.Password)`), and custom placeholders.
+
+Property names are used as-is from FluentValidation. If you call it directly and want a specific casing
 convention, configure `ValidatorOptions.Global.PropertyNameResolver` in your composition root. When you use the
 [endpoint filter](#endpoint-filter-validation) below, key casing is aligned to your JSON settings for you.
 
@@ -541,6 +613,10 @@ applied: a property renamed with `[JsonPropertyName]` keeps its policy name in `
     "errors": {
         "customerEmail": ["Email is required."],
         "quantity": ["Quantity must be greater than 0."]
+    },
+    "errorCodes": {
+        "customerEmail": [{ "code": "NotEmptyValidator" }],
+        "quantity": [{ "code": "GreaterThanValidator", "args": { "comparisonValue": 0 } }]
     },
     "traceId": "00-abc123def456abc123def456abc123de-abc123def456abc1-00",
     "requestId": "0HN8K2MJ7F4QP:00000004"
@@ -701,5 +777,5 @@ described in [Built-in validation and bad JSON bodies](#built-in-validation-and-
 
 ### Extension value types
 
-`Error.With()` accepts a fixed set of value types (see [Extra members and Retry-After](#extra-members-and-retry-after)).
-There is no overload for nested objects.
+`Error.With()` and `FieldError.With()` accept a fixed set of value types (see
+[Extra members and Retry-After](#extra-members-and-retry-after)). There is no overload for nested objects.

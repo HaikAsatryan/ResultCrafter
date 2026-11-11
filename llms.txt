@@ -2,7 +2,7 @@
 
 > Result pattern for ASP.NET Core (.NET 10 and later). Services return `Result<T>`, `Result` or `Error`; one call at
 > the endpoint turns it into a typed success response or an RFC 9457 ProblemDetails error. Minimal API first, MVC
-> controllers supported, NativeAOT-safe. Five NuGet packages under `ResultCrafter.*`. Current version: 3.0.0.
+> controllers supported, NativeAOT-safe. Five NuGet packages under `ResultCrafter.*`. Current version: 3.1.0.
 
 Register with `builder.Services.AddResultCrafter()` and `app.UseResultCrafter()`. Map every result at the endpoint
 (`ToOkResult()`, `ToCreatedResult()`, `ToAcceptedResult()`, `ToNoContentResult()`, `ToProblemResult()`); returning a
@@ -11,7 +11,7 @@ Register with `builder.Services.AddResultCrafter()` and `app.UseResultCrafter()`
 ## Docs
 
 - [README](https://raw.githubusercontent.com/HaikAsatryan/ResultCrafter/main/README.md): what it is, a short example, install.
-- [Guide](https://raw.githubusercontent.com/HaikAsatryan/ResultCrafter/main/docs/guide.md): every feature with examples: errors, results, Minimal API and MVC mapping, validation, EF Core, configuration, limitations.
+- [Guide](https://raw.githubusercontent.com/HaikAsatryan/ResultCrafter/main/docs/guide.md): every feature with examples: errors, results, Minimal API and MVC mapping, validation, field error codes, EF Core, configuration, limitations.
 - [Migrating to 3.0](https://raw.githubusercontent.com/HaikAsatryan/ResultCrafter/main/docs/migrating-to-3.md): breaking changes from 2.x and what to do.
 
 ## Packages

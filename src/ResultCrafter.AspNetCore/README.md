@@ -55,6 +55,7 @@ The client gets `200` with the order, or a `404` like this:
 - Nine error types with the right status: 400, 401, 403, 404, 409 (conflict and concurrency conflict), 410, 422,
   and 429 with `Retry-After`.
 - One ProblemDetails shape for your errors, binding failures, built-in validation and unhandled exceptions.
+- Field errors a client can translate: next to the `errors` messages, `errorCodes` carries a code and args for each.
 - Typed success results (`200`, `201`, `202`, `204`) that OpenAPI sees, and `.ProducesNotFound()` and friends for
   the errors.
 - Source-generated logging: 4xx at Warning, 5xx at Error.

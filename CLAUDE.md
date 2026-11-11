@@ -5,9 +5,10 @@
 ResultCrafter is a minimal, opinionated Result pattern NuGet library for modern .NET (10+).
 Five packages: `Core`, `AspNetCore`, `AspNetCore.EfCore`, `AspNetCore.FluentValidation`, `FluentValidation`
 (`ResultCrafter.MediatR` was discontinued in 3.0). Libraries target `net10.0` only and run on .NET 10 and 11; do not
-add a net11.0 library build. Current version: 3.0.0 (released 2026-11-10).
+add a net11.0 library build. Current version: 3.1.0 (field error codes); 3.0.0 was released 2026-11-10. All five
+packages share one `<Version>` and release together.
 
-Public namespaces (flattened in 2.0): core primitives (`Result`, `Result<T>`, `Error`, `ErrorType`,
+Public namespaces (flattened in 2.0): core primitives (`Result`, `Result<T>`, `Error`, `FieldError`, `ErrorType`,
 `SuccessKind`) live in the root `ResultCrafter` namespace (files directly under `src/ResultCrafter.Core/`,
 no subfolder). `ResultCrafter.AspNetCore` holds the Minimal API `To*Result` extensions, `Produces*` builder
 extensions, DI, options, and exception handlers (files directly under `src/ResultCrafter.AspNetCore/`, no
@@ -72,10 +73,10 @@ runs the publish; without a `<Version>` bump in `Directory.Build.props` the push
 ## Architecture rules
 
 - `Error` is a `sealed class` with a private constructor, factories only, and deep value equality
-  (`IEquatable<Error>`, `==`, `!=`, `GetHashCode` over type, detail, errors, retry-after and extensions). Why: a result
-  holds one reference instead of a copy of every field (`Result` 24 bytes, `Result<string>` 32 on 64-bit, down
-  from 48 and 56 in 2.x), and there is no `default(Error)`. `Fail`, the implicit conversions and `ToProblemResult` throw
-  `ArgumentNullException` on a null `Error`.
+  (`IEquatable<Error>`, `==`, `!=`, `GetHashCode` over type, detail, errors, retry-after and extensions; `Equals` also
+  compares field error codes and args). Why: a result holds one reference instead of a copy of every field (`Result`
+  24 bytes, `Result<string>` 32 on 64-bit, down from 48 and 56 in 2.x), and there is no `default(Error)`. `Fail`,
+  the implicit conversions and `ToProblemResult` throw `ArgumentNullException` on a null `Error`.
 - `ErrorType.None = 0` is a sentinel. No `Error` factory produces it. `HttpErrorCatalog` throws
   `ArgumentOutOfRangeException` on `None`. Never add a mapping for `None`. The catalog spans nine error
   types: `BadRequest` (400), `NotFound` (404), `Conflict` (409), `Unauthorized` (401), `Forbidden` (403),
@@ -97,6 +98,19 @@ runs the publish; without a `<Version>` bump in `Directory.Build.props` the push
   other extension value types crash the error response. Keys are written as given; reserved keys (ProblemDetails
   members, `traceId`, `requestId`, `x-rc`, any `x-rc-` prefix) throw case-insensitively. Core stays free of
   System.Text.Json; `ProblemDetailsBuilder` converts each value to `JsonElement`.
+- `FieldError` (message, optional code, args with the same typed `With` overloads as `Error`) feeds
+  `Error.BadRequest(IReadOnlyDictionary<string, FieldError[]>)`; `Error.FieldErrors` reads them back and `Errors` still
+  holds the messages. `Error` keeps both dictionaries behind one private reference, so field errors cost no extra
+  field on every `Error`. An error built from message strings has no `FieldErrors` and equals one built from field
+  errors without codes or args.
+  `ProblemDetailsBuilder` writes `errors` unchanged and, when any entry has a code or args, an `errorCodes` member as a
+  `JsonElement`: same keys, entry `i` for message `i`, `code` null when none, `args` left out when empty. `errorCodes`
+  is not a reserved `With` key: an app's own member of that name replaces it.
+- The FluentValidation bridge copies the failure's `ErrorCode` (null when blank) and only the allowlisted limit
+  placeholders, renamed to camelCase (`ArgName` in `ValidatorExtensions`). Never copy `PropertyValue`, a value measured
+  from it (`TotalLength`, `Digits`, `ActualScale`), display names, custom placeholders, or a `ComparisonValue` unless
+  `ComparisonProperty` is empty and the value is not a string. Skip `MaxLength` `-1`: FluentValidation's "no maximum"
+  marker (`MinimumLength`), not a limit. `ValidationFilter` re-keys `FieldErrors`, so codes stay with their messages.
 - `AddResultCrafter()` registers `UnmappedResultJsonConverterFactory` in the Minimal API JSON options and MVC
   `JsonOptions` only, never as `[JsonConverter]` on the Core types (own `JsonSerializerOptions` must keep working).
   Its `CreateConverter` throws, so returning `Result<T>`/`Result`/`Error` from an endpoint fails instead of sending

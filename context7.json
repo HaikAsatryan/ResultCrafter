@@ -12,6 +12,7 @@
     "Create results only through the factories (Result<T>.Ok, Created, Accepted; Result.NoContent, Accepted; Error.NotFound, Conflict, BadRequest and the rest) or the implicit conversions. Never use default(Result<T>) or default(Result).",
     "The To*Result method must match how the result was created: a Created result needs ToCreatedResult(). A mismatch throws InvalidOperationException.",
     "Declare error responses for OpenAPI with .ProducesNotFound(), .ProducesBadRequest() and the other Produces* extensions on Minimal API endpoints, or the [ProducesNotFound] style attributes on controllers.",
-    "Error.With(key, value) accepts only string, int, long, bool, double, decimal, Guid, DateTimeOffset, DateTime or string[] values."
+    "Error.With(key, value) and FieldError.With(key, value) accept only string, int, long, bool, double, decimal, Guid, DateTimeOffset, DateTime or string[] values.",
+    "For field errors a client should translate, return Error.BadRequest(new Dictionary<string, FieldError[]> { [\"email\"] = [new FieldError(message, code)] }). The body keeps errors and adds errorCodes with the same keys. Never put the value the caller sent into FieldError args."
   ]
 }

@@ -41,10 +41,16 @@ A failed request gets the house 400, with keys that follow your JSON naming poli
   "errors": {
     "customerEmail": ["Email is required."],
     "items[0].quantity": ["Quantity must be greater than 0."]
+  },
+  "errorCodes": {
+    "customerEmail": [{ "code": "NotEmptyValidator" }],
+    "items[0].quantity": [{ "code": "GreaterThanValidator", "args": { "comparisonValue": 0 } }]
   }
 }
 ```
 
+- `errorCodes` carries each message's code and args at the same key and index, so a client can translate it. The code
+  is the rule's `WithErrorCode` value, or FluentValidation's validator name; the attempted value is never sent.
 - Endpoints without a `T` argument pass through, so the filter is safe on a whole group.
 - A `T` argument with no registered `IValidator<T>` throws, so a missing validator shows up at once.
 - If parameter binding already failed, the filter steps aside and the client sees the binding error.
