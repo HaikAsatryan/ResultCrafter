@@ -9,7 +9,7 @@ namespace ResultCrafter.Tests.AspNetCore;
 
 /// <summary>
 ///     The <c>Produces*</c> helpers document the house error body, not the plain ProblemDetails schema, so
-///     API clients see <c>traceId</c> and <c>errors</c>.
+///     API clients see <c>traceId</c>, <c>errors</c> and <c>errorCodes</c>.
 /// </summary>
 public sealed class OpenApiSchemaTests
 {
@@ -40,10 +40,18 @@ public sealed class OpenApiSchemaTests
         Assert.Equal("#/components/schemas/ProblemResponse", ProblemSchemaRef(root, "/items/{id}", "get", "404"));
         Assert.Equal("#/components/schemas/ProblemResponse", ProblemSchemaRef(root, "/items", "post", "400"));
 
-        var properties = root.GetProperty("components").GetProperty("schemas").GetProperty("ProblemResponse")
-            .GetProperty("properties");
+        var schemas = root.GetProperty("components").GetProperty("schemas");
+        var properties = schemas.GetProperty("ProblemResponse").GetProperty("properties");
         Assert.True(properties.TryGetProperty("traceId", out _));
         Assert.True(properties.TryGetProperty("errors", out _));
+
+        // errorCodes: field name to an array of FieldErrorCode entries.
+        var entryRef = properties.GetProperty("errorCodes").GetProperty("additionalProperties").GetProperty("items")
+            .GetProperty("$ref").GetString();
+        Assert.Equal("#/components/schemas/FieldErrorCode", entryRef);
+        var entry = schemas.GetProperty("FieldErrorCode").GetProperty("properties");
+        Assert.True(entry.TryGetProperty("code", out _));
+        Assert.True(entry.TryGetProperty("args", out _));
     }
 
     private static string? ProblemSchemaRef(JsonElement root, string path, string method, string status)

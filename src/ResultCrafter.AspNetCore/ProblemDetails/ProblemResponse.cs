@@ -5,7 +5,7 @@ namespace ResultCrafter.AspNetCore.ProblemDetails;
 /// <summary>
 ///     The shape of every ResultCrafter error body, for OpenAPI documents only. The <c>Produces*</c> builder
 ///     extensions and attributes declare it as the <c>application/problem+json</c> response schema, so API
-///     clients see <c>traceId</c>, <c>requestId</c> and <c>errors</c>, which the plain
+///     clients see <c>traceId</c>, <c>requestId</c>, <c>errors</c> and <c>errorCodes</c>, which the plain
 ///     <see cref="Microsoft.AspNetCore.Mvc.ProblemDetails" /> schema does not list.
 /// </summary>
 /// <remarks>
@@ -47,4 +47,11 @@ public sealed class ProblemResponse
     /// <summary>Field-level error messages keyed by field name. Present only on validation errors.</summary>
     [JsonPropertyName("errors")]
     public IReadOnlyDictionary<string, string[]>? Errors { get; init; }
+
+    /// <summary>
+    ///     The code and args of each message in <see cref="Errors" />, at the same key and index, so a client can show
+    ///     the error in its own language. Present only when a field error carries a code or args.
+    /// </summary>
+    [JsonPropertyName("errorCodes")]
+    public IReadOnlyDictionary<string, FieldErrorCode[]>? ErrorCodes { get; init; }
 }

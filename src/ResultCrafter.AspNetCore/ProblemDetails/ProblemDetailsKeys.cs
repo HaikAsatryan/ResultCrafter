@@ -33,4 +33,11 @@ public static class ProblemDetailsKeys
     ///     matching the shape produced by ASP.NET Core's built-in model validation responses.
     /// </summary>
     public const string Errors = "errors";
+
+    /// <summary>
+    ///     Extension key for the codes and args of the field errors, keyed like <see cref="Errors" />: entry <c>i</c>
+    ///     of a field describes message <c>i</c> of the same field. Written only when a
+    ///     <see cref="ResultCrafter.FieldError" /> carries a code or args.
+    /// </summary>
+    public const string ErrorCodes = "errorCodes";
 }

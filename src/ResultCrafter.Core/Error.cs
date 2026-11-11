@@ -19,8 +19,7 @@ public sealed class Error : IEquatable<Error>
 {
     private static readonly TimeSpan MaxRetryAfter = TimeSpan.FromSeconds(int.MaxValue);
 
-    private static readonly IReadOnlyDictionary<string, object> NoExtensions =
-        ReadOnlyDictionary<string, object>.Empty;
+    private static readonly IReadOnlyDictionary<string, object> NoExtensions = TypedValues.Empty;
 
     // Members that a ProblemDetails body or the ResultCrafter pipeline already writes. An extension with
     // one of these names would overwrite them or collide with them.
@@ -29,15 +28,18 @@ public sealed class Error : IEquatable<Error>
         "type", "title", "status", "detail", "instance", "errors", "traceId", "requestId"
     };
 
+    // Messages and field errors sit behind one reference, so field errors cost no extra field on every Error.
+    private readonly ValidationErrors? _validation;
+
     private Error(ErrorType type,
         string? detail,
-        IReadOnlyDictionary<string, string[]>? errors,
+        ValidationErrors? validation,
         TimeSpan? retryAfter,
         IReadOnlyDictionary<string, object> extensions)
     {
         Type = type;
         Detail = detail;
-        Errors = errors;
+        _validation = validation;
         RetryAfter = retryAfter;
         Extensions = extensions;
     }
@@ -53,10 +55,19 @@ public sealed class Error : IEquatable<Error>
 
     /// <summary>
     ///     Field-level error messages, keyed by field name. Set only by
-    ///     <see cref="BadRequest(IReadOnlyDictionary{string,string[]},string?)" />; <see langword="null" /> otherwise.
-    ///     The message arrays are the error's own; do not modify them.
+    ///     <see cref="BadRequest(IReadOnlyDictionary{string,string[]},string?)" /> and
+    ///     <see cref="BadRequest(IReadOnlyDictionary{string,FieldError[]},string?)" />; <see langword="null" />
+    ///     otherwise. The message arrays are the error's own; do not modify them.
     /// </summary>
-    public IReadOnlyDictionary<string, string[]>? Errors { get; }
+    public IReadOnlyDictionary<string, string[]>? Errors => _validation?.Messages;
+
+    /// <summary>
+    ///     The field errors with their codes and args, keyed like <see cref="Errors" />: entry <c>i</c> of a field holds
+    ///     message <c>i</c> of the same field. Set only by
+    ///     <see cref="BadRequest(IReadOnlyDictionary{string,FieldError[]},string?)" />; <see langword="null" />
+    ///     otherwise. The arrays are the error's own; do not modify them.
+    /// </summary>
+    public IReadOnlyDictionary<string, FieldError[]>? FieldErrors => _validation?.Entries;
 
     /// <summary>
     ///     <see langword="true" /> when this error carries a field-level <see cref="Errors" /> dictionary.
@@ -195,8 +206,52 @@ public sealed class Error : IEquatable<Error>
             copy[key] = copy.TryGetValue(key, out var existing) ? [.. existing, .. cloned] : cloned;
         }
 
-        return new Error(ErrorType.BadRequest, detail, new ReadOnlyDictionary<string, string[]>(copy), null,
-            NoExtensions);
+        return new Error(ErrorType.BadRequest, detail,
+            new ValidationErrors(new ReadOnlyDictionary<string, string[]>(copy), null), null, NoExtensions);
+    }
+
+    /// <summary>
+    ///     Creates a <see cref="ErrorType.BadRequest" /> error (HTTP 400) with field errors that can carry a code
+    ///     and args, so a client can show each one in its own language. <see cref="Errors" /> holds their messages.
+    ///     The dictionary and arrays are copied, so later changes by the caller do not affect the error.
+    /// </summary>
+    /// <param name="errors">
+    ///     A non-empty dictionary mapping field names to their errors. Keys are compared case-insensitively; keys
+    ///     that differ only by case are merged into one entry.
+    /// </param>
+    /// <param name="detail">Optional prose summary. Falls back to a catalog default when <see langword="null" />.</param>
+    /// <exception cref="ArgumentNullException">Thrown when <paramref name="errors" /> is <see langword="null" />.</exception>
+    /// <exception cref="ArgumentException">
+    ///     Thrown when <paramref name="errors" /> is empty, contains a null or whitespace key, or maps a key to a
+    ///     null array or an array with a null entry.
+    /// </exception>
+    public static Error BadRequest(IReadOnlyDictionary<string, FieldError[]> errors, string? detail = null)
+    {
+        ArgumentNullException.ThrowIfNull(errors);
+
+        if (errors.Count == 0)
+            throw new ArgumentException("BadRequest(errors) requires at least one field error.", nameof(errors));
+
+        var entries = new Dictionary<string, FieldError[]>(errors.Count, StringComparer.OrdinalIgnoreCase);
+
+        foreach (var (key, value) in errors)
+        {
+            ArgumentException.ThrowIfNullOrWhiteSpace(key);
+            if (value is null)
+                throw new ArgumentException($"Field '{key}' maps to a null array.", nameof(errors));
+            if (Array.Exists(value, entry => entry is null))
+                throw new ArgumentException($"Field '{key}' holds a null field error.", nameof(errors));
+
+            var cloned = value.Length == 0 ? [] : (FieldError[])value.Clone();
+            entries[key] = entries.TryGetValue(key, out var existing) ? [.. existing, .. cloned] : cloned;
+        }
+
+        var messages = new Dictionary<string, string[]>(entries.Count, StringComparer.OrdinalIgnoreCase);
+        foreach (var (key, value) in entries) messages[key] = Array.ConvertAll(value, entry => entry.Message);
+
+        return new Error(ErrorType.BadRequest, detail,
+            new ValidationErrors(new ReadOnlyDictionary<string, string[]>(messages),
+                new ReadOnlyDictionary<string, FieldError[]>(entries)), null, NoExtensions);
     }
 
     private static Error Create(ErrorType type, string? detail)
@@ -320,11 +375,7 @@ public sealed class Error : IEquatable<Error>
                 $"'{key}' is reserved: ProblemDetails or ResultCrafter already writes a member with this name.",
                 nameof(key));
 
-        var copy = new Dictionary<string, object>(Extensions.Count + 1, StringComparer.Ordinal);
-        foreach (var (existingKey, existingValue) in Extensions) copy[existingKey] = existingValue;
-        copy[key] = value;
-
-        return new Error(Type, Detail, Errors, RetryAfter, new ReadOnlyDictionary<string, object>(copy));
+        return new Error(Type, Detail, _validation, RetryAfter, TypedValues.With(Extensions, key, value));
     }
 
     // The x-rc prefix holds ResultCrafter's internal pipeline markers, current and future.
@@ -347,7 +398,8 @@ public sealed class Error : IEquatable<Error>
                string.Equals(Detail, other.Detail, StringComparison.Ordinal) &&
                RetryAfter == other.RetryAfter &&
                ErrorsEqual(Errors, other.Errors) &&
-               ExtensionsEqual(Extensions, other.Extensions);
+               FieldErrorsEqual(FieldErrors, other.FieldErrors) &&
+               TypedValues.Equal(Extensions, other.Extensions);
     }
 
     /// <inheritdoc />
@@ -364,31 +416,22 @@ public sealed class Error : IEquatable<Error>
         hash.Add(Detail, StringComparer.Ordinal);
         hash.Add(RetryAfter);
 
+        // Codes and args are left out: errors that differ only there share a hash, and Equals tells them apart.
         if (Errors is not null)
         {
             // Summed so the result does not depend on dictionary order.
             var entries = 0;
             foreach (var (key, values) in Errors)
             {
-                entries += HashCode.Combine(StringComparer.OrdinalIgnoreCase.GetHashCode(key), ArrayHash(values));
+                entries += HashCode.Combine(StringComparer.OrdinalIgnoreCase.GetHashCode(key),
+                    TypedValues.ArrayHash(values));
             }
 
             hash.Add(Errors.Count);
             hash.Add(entries);
         }
 
-        if (Extensions.Count > 0)
-        {
-            var entries = 0;
-            foreach (var (key, value) in Extensions)
-            {
-                entries += HashCode.Combine(StringComparer.Ordinal.GetHashCode(key),
-                    value is string[] array ? ArrayHash(array) : value.GetHashCode());
-            }
-
-            hash.Add(Extensions.Count);
-            hash.Add(entries);
-        }
+        if (Extensions.Count > 0) hash.Add(TypedValues.Hash(Extensions));
 
         return hash.ToHashCode();
     }
@@ -413,47 +456,52 @@ public sealed class Error : IEquatable<Error>
 
         foreach (var (key, aValues) in a)
         {
-            if (!b.TryGetValue(key, out var bValues) || !ArrayEquals(aValues, bValues)) return false;
+            if (!b.TryGetValue(key, out var bValues) || !TypedValues.ArrayEquals(aValues, bValues)) return false;
         }
 
         return true;
     }
 
-    private static bool ExtensionsEqual(IReadOnlyDictionary<string, object> a, IReadOnlyDictionary<string, object> b)
+    // An error built from message strings has no codes or args, so it equals one built from field errors that
+    // carry none and have the same messages.
+    private static bool FieldErrorsEqual(IReadOnlyDictionary<string, FieldError[]>? a,
+        IReadOnlyDictionary<string, FieldError[]>? b)
     {
         if (ReferenceEquals(a, b)) return true;
+        if (a is null) return !HasCodeOrArgs(b!);
+        if (b is null) return !HasCodeOrArgs(a);
         if (a.Count != b.Count) return false;
 
-        foreach (var (key, aValue) in a)
+        foreach (var (key, aEntries) in a)
         {
-            if (!b.TryGetValue(key, out var bValue)) return false;
-
-            var equal = aValue is string[] aArray
-                ? bValue is string[] bArray && ArrayEquals(aArray, bArray)
-                : aValue.Equals(bValue);
-
-            if (!equal) return false;
+            if (!b.TryGetValue(key, out var bEntries) || !aEntries.AsSpan().SequenceEqual(bEntries)) return false;
         }
 
         return true;
     }
 
-    private static bool ArrayEquals(string[] a, string[] b)
+    private static bool HasCodeOrArgs(IReadOnlyDictionary<string, FieldError[]> fieldErrors)
     {
-        return a.AsSpan().SequenceEqual(b);
-    }
+        foreach (var entries in fieldErrors.Values)
+        {
+            if (Array.Exists(entries, entry => entry.Code is not null || entry.Args.Count > 0)) return true;
+        }
 
-    private static int ArrayHash(string[] values)
-    {
-        var hash = new HashCode();
-        hash.Add(values.Length);
-        foreach (var value in values) hash.Add(value, StringComparer.Ordinal);
-        return hash.ToHashCode();
+        return false;
     }
 
     /// <inheritdoc />
     public override string ToString()
     {
         return Detail is not null ? $"{Type}: {Detail}" : Type.ToString();
+    }
+
+    private sealed class ValidationErrors(
+        IReadOnlyDictionary<string, string[]> messages,
+        IReadOnlyDictionary<string, FieldError[]>? entries)
+    {
+        public IReadOnlyDictionary<string, string[]> Messages { get; } = messages;
+
+        public IReadOnlyDictionary<string, FieldError[]>? Entries { get; } = entries;
     }
 }
