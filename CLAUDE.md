@@ -5,7 +5,7 @@
 ResultCrafter is a minimal, opinionated Result pattern NuGet library for modern .NET (10+).
 Five packages: `Core`, `AspNetCore`, `AspNetCore.EfCore`, `AspNetCore.FluentValidation`, `FluentValidation`
 (`ResultCrafter.MediatR` was discontinued in 3.0). Libraries target `net10.0` only and run on .NET 10 and 11; do not
-add a net11.0 library build. Current version: 3.1.0 (field error codes); 3.0.0 was released 2026-11-10. All five
+add a net11.0 library build. Current version: 3.1.0 (field error codes, released 2026-11-11). All five
 packages share one `<Version>` and release together.
 
 Public namespaces (flattened in 2.0): core primitives (`Result`, `Result<T>`, `Error`, `FieldError`, `ErrorType`,
@@ -37,8 +37,8 @@ bash tests/ResultCrafter.AotSmoke/run-aot-smoke.sh   # NativeAOT publish + self-
 EF Core and Microsoft.AspNetCore.OpenApi (test-only); every test runs on both runtimes, and `#if NET11_0_OR_GREATER`
 is used only for C# union tests. `dotnet test` runs via Microsoft.Testing.Platform (configured through `global.json`
 `test.runner` plus `UseMicrosoftTestingPlatformRunner` in the test project), not VSTest. `Directory.Build.targets`
-adds `EnablePackageValidation`, `PackageValidationBaselineVersion` `3.0.0` (pack fails on a public API break
-against 3.0.0) and `IsAotCompatible` for packable projects.
+adds `EnablePackageValidation`, `PackageValidationBaselineVersion` `3.1.0` (pack fails on a public API break
+against 3.1.0) and `IsAotCompatible` for packable projects.
 
 `tests/ResultCrafter.AotSmoke` is a `PublishAot` web app (`net10.0;net11.0`, `CreateSlimBuilder`, source-generated
 JSON context) that starts Kestrel on `127.0.0.1:0`, calls its own endpoints and exits 0 or 1. Its runtimeconfig turns

@@ -64,7 +64,7 @@ jobs:
       - name: Test (net10.0 and net11.0)
         run: dotnet test --no-build --configuration Release --verbosity normal
 
-      # Pack runs NuGet package validation against the 3.0.0 baseline (Directory.Build.targets),
+      # Pack runs NuGet package validation against the 3.1.0 baseline (Directory.Build.targets),
       # so a public API break fails here, before anything is pushed.
       - name: Pack
         run: dotnet pack ResultCrafter.slnx --no-build --configuration Release --output ${{ env.OUTPUT_DIR }}
