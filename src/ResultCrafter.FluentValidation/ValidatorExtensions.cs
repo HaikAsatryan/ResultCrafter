@@ -21,8 +21,9 @@ public static class ValidatorExtensions
     ///     you need a different casing convention (e.g. camelCase).
     ///     Each <see cref="FieldError" /> carries the failure's error code (the rule's <c>WithErrorCode</c> value, or
     ///     FluentValidation's validator name such as <c>NotEmptyValidator</c>) and the rule's limits as args:
-    ///     <c>minLength</c>, <c>maxLength</c>, <c>from</c>, <c>to</c>, <c>expectedPrecision</c>,
-    ///     <c>expectedScale</c>, and <c>comparisonValue</c> when the rule compares with a fixed, non-string value.
+    ///     <c>minLength</c>, <c>maxLength</c> (left out when the rule has no maximum, as with
+    ///     <c>MinimumLength</c>), <c>from</c>, <c>to</c>, <c>expectedPrecision</c>, <c>expectedScale</c>, and
+    ///     <c>comparisonValue</c> when the rule compares with a value that is neither a string nor another property.
     ///     The attempted value and anything measured from it are never copied.
     /// </remarks>
     public static async Task<Error?> ValidateToResultAsync<T>(this IValidator<T> validator,
@@ -60,6 +61,8 @@ public static class ValidatorExtensions
         {
             if (value is null || ArgName(placeholder) is not { } name) continue;
             if (placeholder == "ComparisonValue" && !IsFixedComparison(placeholders, value)) continue;
+            // MinimumLength stores "no maximum" as MaxLength -1. It is not a limit, and a client would show "-1".
+            if (placeholder == "MaxLength" && value is -1) continue;
 
             fieldError = WithArg(fieldError, name, value);
         }

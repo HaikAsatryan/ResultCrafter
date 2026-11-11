@@ -225,6 +225,104 @@ public sealed class ValidatorExtensionsTests
         Assert.Equal("Thirteen is unlucky.", fieldError.Message);
     }
 
+    [Fact]
+    public async Task ValidateToResultAsync_MinimumLength_DropsTheNoMaximumMarker()
+    {
+        var error = await new LimitsValidator().ValidateToResultAsync(ValidLimits() with { Short = "ab" },
+            TestContext.Current.CancellationToken);
+
+        var fieldError = Assert.Single(error!.FieldErrors!["Short"]);
+        Assert.Equal("MinimumLengthValidator", fieldError.Code);
+        Assert.Equal(3, fieldError.Args["minLength"]);
+        Assert.Single(fieldError.Args);
+    }
+
+    [Fact]
+    public async Task ValidateToResultAsync_LengthRangeAndExactLength_SendBothBounds()
+    {
+        var error = await new LimitsValidator().ValidateToResultAsync(
+            ValidLimits() with { Range = "too long", Exact = "ab" }, TestContext.Current.CancellationToken);
+
+        var range = Assert.Single(error!.FieldErrors!["Range"]);
+        Assert.Equal("LengthValidator", range.Code);
+        Assert.Equal(2, range.Args["minLength"]);
+        Assert.Equal(5, range.Args["maxLength"]);
+        Assert.Equal(2, range.Args.Count);
+
+        var exact = Assert.Single(error.FieldErrors["Exact"]);
+        Assert.Equal("ExactLengthValidator", exact.Code);
+        Assert.Equal(4, exact.Args["minLength"]);
+        Assert.Equal(4, exact.Args["maxLength"]);
+        Assert.Equal(2, exact.Args.Count);
+    }
+
+    [Fact]
+    public async Task ValidateToResultAsync_PrecisionScale_SendsTheLimitsButNotTheMeasuredDigits()
+    {
+        var error = await new LimitsValidator().ValidateToResultAsync(ValidLimits() with { Price = 123.456m },
+            TestContext.Current.CancellationToken);
+
+        var fieldError = Assert.Single(error!.FieldErrors!["Price"]);
+        Assert.Equal("ScalePrecisionValidator", fieldError.Code);
+        Assert.Equal(4, fieldError.Args["expectedPrecision"]);
+        Assert.Equal(2, fieldError.Args["expectedScale"]);
+        Assert.Equal(2, fieldError.Args.Count);
+    }
+
+    [Fact]
+    public async Task ValidateToResultAsync_ComparisonWithMissingValue_SendsNoComparisonValue()
+    {
+        // FluentValidation reports a null comparison value as "".
+        var error = await new LimitsValidator().ValidateToResultAsync(ValidLimits() with { Floor = null },
+            TestContext.Current.CancellationToken);
+
+        var fieldError = Assert.Single(error!.FieldErrors!["Count"]);
+        Assert.Equal("GreaterThanValidator", fieldError.Code);
+        Assert.Empty(fieldError.Args);
+    }
+
+    [Fact]
+    public async Task ValidateToResultAsync_ComparisonWithComputedValue_SendsItLikeTheMessageDoes()
+    {
+        // A computed lambda has no ComparisonProperty, so it looks like a fixed value. FluentValidation's own
+        // message prints the same value.
+        var error = await new LimitsValidator().ValidateToResultAsync(ValidLimits() with { Count = 25 },
+            TestContext.Current.CancellationToken);
+
+        var fieldError = Assert.Single(error!.FieldErrors!["Count"]);
+        Assert.Equal("LessThanValidator", fieldError.Code);
+        Assert.Equal(20, fieldError.Args["comparisonValue"]);
+        Assert.Single(fieldError.Args);
+        Assert.Contains("'20'", fieldError.Message);
+    }
+
+    private static Limits ValidLimits()
+    {
+        return new Limits("abc", "abc", "abcd", 12.34m, 5, 0, 10);
+    }
+
+    private sealed record Limits(
+        string Short,
+        string Range,
+        string Exact,
+        decimal Price,
+        int Count,
+        int? Floor,
+        int Ceiling);
+
+    private sealed class LimitsValidator : AbstractValidator<Limits>
+    {
+        public LimitsValidator()
+        {
+            RuleFor(x => x.Short).MinimumLength(3);
+            RuleFor(x => x.Range).Length(2, 5);
+            RuleFor(x => x.Exact).Length(4);
+            RuleFor(x => x.Price).PrecisionScale(4, 2, false);
+            RuleFor(x => x.Count).GreaterThan(x => x.Floor == null ? null : x.Floor + 1);
+            RuleFor(x => x.Count).LessThan(x => x.Ceiling * 2);
+        }
+    }
+
     private static Signup Valid()
     {
         return new Signup("Ann", "ann@example.com", 1, 0.5m, "hunter2", "hunter2", "a hint");
